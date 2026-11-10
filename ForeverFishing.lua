@@ -649,8 +649,9 @@ ns.ShowOnboarding = ShowOnboarding
 local optionsPanel
 local function EnsureOptionsPanel()
     if optionsPanel then return optionsPanel end
-    local panel = CreateFrame("Frame", ADDON_NAME .. "OptionsPanel", UIParent)
+    local panel = CreateFrame("Frame", ADDON_NAME .. "OptionsPanel", UIParent, "BackdropTemplate")
     panel.name = DISPLAY_NAME
+    panel:Hide() -- shown on demand (Blizzard settings, or standalone fallback)
     local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
     title:SetText("|cff4dd0e6WoW Forever Fishing Addon|r |cffaaaaaaby ByJTT|r")
@@ -742,7 +743,41 @@ function ns.OpenOptions()
         InterfaceOptionsFrame_OpenToCategory(p)
         return
     end
-    if p then p:Show(); Print("Options panel opened (fallback).") else Print("Options UI not available; use /ffish commands.") end
+    -- Fallback: standalone movable dialog (Blizzard settings unavailable, e.g. Classic client).
+    p:ClearAllPoints()
+    p:SetSize(560, 480)
+    p:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
+    p:SetFrameStrata("DIALOG")
+    p:SetClampedToScreen(true)
+    p:EnableMouse(true)
+    p:SetMovable(true)
+    p:RegisterForDrag("LeftButton")
+    p:SetScript("OnDragStart", function(self) if not InCombat() then self:StartMoving() end end)
+    p:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+    if p.SetBackdrop and not p._backdropSet then
+        p:SetBackdrop({
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+            tile = true, tileSize = 32, edgeSize = 32,
+            insets = { left = 11, right = 12, top = 12, bottom = 11 }
+        })
+        p._backdropSet = true
+    elseif not p.SetBackdrop and not p._fallbackBg then
+        local bg = p:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints(true)
+        bg:SetColorTexture(0, 0, 0, 0.92)
+        p._fallbackBg = bg
+    end
+    if not p._closeBtn then
+        local close = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
+        close:SetSize(80, 22)
+        close:SetPoint("BOTTOM", p, "BOTTOM", 0, 16)
+        close:SetText("Close")
+        close:SetScript("OnClick", function() p:Hide() end)
+        p._closeBtn = close
+    end
+    p:Show()
+    Print("Options panel opened (standalone). Drag to move; Close button or /reload to dismiss.")
 end
 
 --------------------------------------------------------------------------------
