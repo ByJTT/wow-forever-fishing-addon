@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions / usage help
+    url: https://github.com/ByJTT/wow-forever-fishing-addon/discussions
+    about: Ask setup/usage questions (if Discussions are enabled) or open a focused issue with /ffish debug output.

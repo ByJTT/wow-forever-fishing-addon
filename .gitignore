@@ -1,0 +1,20 @@
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Local/dev helpers (not part of the public addon release)
+DEV.md
+Bindings.xml
+
+# Never commit personal data, secrets, or game account data
+*.env
+*.log
+SavedVariables/
+WTF/
+Screenshots/

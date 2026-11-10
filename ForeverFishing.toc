@@ -1,0 +1,14 @@
+## Interface: 16001, 30300
+## Title: WoW Forever Fishing Addon ByJTT
+## Notes: One-click fishing, lure & pole helpers, bite alert + catch tracker (WoW Forever). /ffish config | by ByJTT
+## Author: ByJTT
+## Version: 1.0.0
+## SavedVariables: ForeverFishingDB
+## X-Category: Professions
+## X-License: MIT
+## X-Website: https://github.com/ByJTT/wow-forever-fishing-addon
+## X-ByJTT-Repo: wow-forever-fishing-addon
+## X-ByJTT-Web: https://byjtt.com
+## X-ByJTT-Support: https://buymeacoffee.com/ByJTT
+
+ForeverFishing.lua

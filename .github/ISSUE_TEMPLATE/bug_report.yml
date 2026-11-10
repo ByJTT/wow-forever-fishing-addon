@@ -1,0 +1,42 @@
+name: Bug report
+description: Report a problem (ByJTT / Forever Fishing)
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keep reports specific. Do not include personal/account data.
+  - type: input
+    id: version
+    attributes:
+      label: Addon version
+      placeholder: "v1.0.0 (from /ffish debug)"
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Expected vs actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. /ffish cast
+        2. Click Lure button
+    validations:
+      required: true
+  - type: textarea
+    id: debug
+    attributes:
+      label: /ffish debug output and Lua errors
+      description: Paste `/ffish debug`. If relevant, enable `/console scriptErrors 1` and include the Lua error. Do not include account data or local personal paths.
+      render: text
+  - type: input
+    id: client
+    attributes:
+      label: Client
+      placeholder: "WoW Forever (interface/build if known)"
