@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0/).
 
+## [Unreleased]
+
+### Changed
+- **One smart Fish! button replaces the two-button bar:** a single click now equips your best pole (if needed), applies your best lure (only if the pole is bare — never wasted), and casts. No second button to learn.
+- **Plain-English tooltip:** hover shows your skill, equipped pole, lure state, and exactly what the next click will do.
+- Button state refreshes after every cast, loot, and bag change; `/ffish cast` and the button are the same action.
+
 ## [1.0.0] - 2026-11-10 (local foundation, not yet tagged/released)
 
 ### Added

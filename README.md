@@ -4,14 +4,23 @@
 >
 > **Project status / full context (humans + AI):** see [`HANDOFF.md`](HANDOFF.md). Agent rules: [`AGENTS.md`](AGENTS.md).
 
-Shows one-click **Fish** + **Lure** buttons (only the Lure button appears when you have lures), bite alert (sound + flash), and a session/zone/lifetime catch tracker. Includes onboarding and in-game settings (`/ffish config`).
+Shows one big **Fish!** button that does everything in a single click — equips your best pole, applies a lure, casts — plus bite alert (sound + flash) and a session/zone/lifetime catch tracker. Includes onboarding and in-game settings (`/ffish config`).
 
 **Keywords (discovery):** WoW Forever addon, World of Warcraft Forever, fishing, one-click cast, lure helper, bite alert, catch tracker, fish watcher, ByJTT.
 
+## How it works (one button)
+
+1. Click **Fish!** once — it equips your best pole (if needed), applies your best lure (only if the pole is bare, so lures are never wasted), and casts.
+2. Wait for the flash + sound — that's the bite.
+3. Click the bobber in the water to loot. Your catch is tracked automatically.
+
+Hover the button any time to see plain-English status: your skill, which pole is equipped, whether a lure is active, and what the next click will do.
+
 ## Features
 
-- **One-click cast** — secure spell button casting Fishing (classic spell 7620, name fallback).
-- **Lure helper** — shows your best lure in bags (Bright Baubles, Aquadynamic Fish Attractor, Shiny Bauble, Nightcrawlers, Sharpened Fish Hook, …); one click applies it.
+- **One smart button** — pole + lure + cast in a single click. No second button to learn.
+- **Never wastes lures** — lure step is skipped when the pole already has one, and the button state refreshes after every cast and loot.
+- **Pole helper** — auto-equips your best pole from bags if you don't have one equipped.
 - **Bite alert** — flash + optional sound when the fish bites.
 - **Catch tracker** — session casts/catches, per-zone breakdown (`/ffish zones`), lifetime totals.
 - **Taint-safe** — no `OnClick`/`PreClick`/`PostClick` handlers on secure buttons; protected changes deferred out of combat.
@@ -44,16 +53,16 @@ Source: https://github.com/ByJTT/wow-forever-fishing-addon
 
 ## Usage
 
-- Click **Fish** to cast. Click **Lure** (when shown) to apply your best lure.
-- **Shift+Drag** a button to move (or `/ffish move` then `/ffish lock`).
+- Click **Fish!** to fish (pole + lure + cast, one click). Hover it to see status.
+- **Shift+Drag** to move (or `/ffish move` then `/ffish lock`).
 - Open in-game settings: **`/ffish config`**. Show onboarding: **`/ffish onboarding`**.
 
 ```text
-/ffish                help
+/ffish                help (how the one button works)
 /ffish config         open settings (WoW UI)
-/ffish cast           cast fishing now
-/ffish lure           apply best lure in bags
-/ffish stats          session + zone summary
+/ffish cast           same as clicking Fish!
+/ffish lure           manually apply best lure in bags (usually automatic)
+/ffish stats           session + zone summary
 /ffish zones          full zone breakdown
 /ffish reset          end session, start fresh counters
 /ffish lock|unlock    lock/unlock position (Shift+Drag moves)

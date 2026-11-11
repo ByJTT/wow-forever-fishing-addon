@@ -39,14 +39,14 @@ local FISHING_SPELL_NAMES = { "Fishing" }
 -- Fishing poles (known classic items — ranked for "best pole in bags").
 -- id + fallback name so the addon survives missing/incorrect IDs.
 local POLES = {
-    { id = 19970, name = "Arcanite Fishing Pole" },       -- +40
-    { id = 19022, name = "Nat Pagle's Extreme Angler FC-5000" }, -- +20
-    { id = 45991, name = "Bone Fishing Pole" },           -- classic-era alternates below
-    { id = 45992, name = "Jeweled Fishing Pole" },
-    { id = 120363, name = "Dentrium Power Pole" },
-    { id = 8464, name = "Blump Family Fishing Pole" },    -- +3
-    { id = 8465, name = "Big Iron Fishing Pole" },       -- +20
-    { id = 6256, name = "Fishing Pole" },                -- vendor starter
+    { id = 19970, name = "Arcanite Fishing Pole", bonus = 40 },
+    { id = 45991, name = "Bone Fishing Pole", bonus = 30 },
+    { id = 45992, name = "Jeweled Fishing Pole", bonus = 30 },
+    { id = 19022, name = "Nat Pagle's Extreme Angler FC-5000", bonus = 25 },
+    { id = 8465, name = "Big Iron Fishing Pole", bonus = 20 },
+    { id = 120363, name = "Dentrium Power Pole", bonus = 15 },
+    { id = 8464, name = "Blump Family Fishing Pole", bonus = 3 },
+    { id = 6256, name = "Fishing Pole", bonus = 0 },
 }
 ns.POLES = POLES
 
@@ -172,6 +172,74 @@ ns.PlayerFishingSkill = PlayerFishingSkill
 local function ProfessionFishingKnown()
     return IsSpellKnownAny({ FISHING_SPELL_ID }, FISHING_SPELL_NAMES)
 end
+
+-- Which known pole is equipped right now? (nil if none of ours.)
+local function EquippedPole()
+    if not GetInventoryItemID then return nil, nil end
+    local itemID = Compat.SafeCall(GetInventoryItemID, "player", 16)
+    if not itemID then return nil, nil end
+    for _, p in ipairs(POLES) do
+        if p.id == itemID then return p, itemID end
+    end
+    -- Equipped pole we don't recognise (custom/unknown ID): still a pole.
+    if GetItemInfo and Compat.SafeCall(GetItemInfo, itemID) then
+        return { id = itemID, name = "Fishing Pole", bonus = 0 }, itemID
+    end
+    return nil, nil
+end
+ns.EquippedPole = EquippedPole
+
+-- Best pole sitting in bags (not equipped).
+local function BestBagPole()
+    local best, bestEntry = nil, nil
+    for _, p in ipairs(POLES) do
+        local count = 0
+        if p.id and GetItemCount then
+            count = Compat.SafeCall(GetItemCount, p.id, false, false, false) or 0
+        end
+        if (not count or count == 0) and p.name and GetItemCount then
+            count = Compat.SafeCall(GetItemCount, p.name, false, false, false) or 0
+        end
+        if count and count > 0 then
+            if not bestEntry or (p.bonus or 0) > (bestEntry.bonus or 0) then
+                best, bestEntry = count, p
+            end
+        end
+    end
+    return best, bestEntry
+end
+ns.BestBagPole = BestBagPole
+
+-- Does the equipped pole currently have a lure (temporary enchant)?
+local function PoleHasLure()
+    if GetWeaponEnchantInfo then
+        local hasMain = Compat.SafeCall(GetWeaponEnchantInfo)
+        if hasMain then return true end
+    end
+    return false
+end
+ns.PoleHasLure = PoleHasLure
+
+-- Build the one-click macro: equip pole (if needed) -> lure (if needed) -> cast.
+-- Each line is guarded so re-clicking never wastes a lure or un-equips anything.
+local function BuildFishingMacro(bestPole, bestLure, spellName)
+    local lines = {}
+    if bestPole and bestPole.name then
+        -- /equip only swaps if it's not already equipped (no-op otherwise).
+        table.insert(lines, "/equip " .. bestPole.name)
+    end
+    if bestLure and bestLure.name then
+        -- /use <lure> then /use 16 applies it to the equipped pole.
+        -- Guarded: only when the pole has no lure right now is handled by
+        -- refreshing the button state after each cast; the macro itself is
+        -- skipped entirely when PoleHasLure() is true (see BuildButtonStates).
+        table.insert(lines, "/use " .. bestLure.name)
+        table.insert(lines, "/use 16")
+    end
+    table.insert(lines, "/cast " .. (spellName or "Fishing"))
+    return table.concat(lines, "\n")
+end
+ns.BuildFishingMacro = BuildFishingMacro
 
 --------------------------------------------------------------------------------
 -- SavedVariables: defaults, schema (additive migrations, never drop keys)
@@ -311,12 +379,18 @@ end
 --------------------------------------------------------------------------------
 local function SetTooltip(btn)
     GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+    GameTooltip:SetText(btn._title or "Fish!", 1, 1, 1)
+    if btn._status then
+        -- Plain-English status lines, one per line.
+        for raw in tostring(btn._status):gmatch("[^•]+") do
+            local bit = raw:gsub("^%s+", ""):gsub("%s+$", "")
+            if bit ~= "" then GameTooltip:AddLine("• " .. bit, 0.8, 0.9, 1, true) end
+        end
+    end
     local a = btn._action
-    GameTooltip:SetText(btn._title or "Fishing", 1, 1, 1)
-    if a and a.hint then GameTooltip:AddLine(a.hint, 0.9, 0.9, 0.9, true) end
-    if btn._status then GameTooltip:AddLine(btn._status, 0.8, 0.9, 1, true) end
+    if a and a.hint then GameTooltip:AddLine(" ") GameTooltip:AddLine(a.hint, 0.95, 0.95, 0.6, true) end
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("|cff00ff00Click|r " .. (btn._verb or "to use"), 0.9, 0.9, 0.9)
+    GameTooltip:AddLine("|cff00ff00Click|r " .. (btn._verb or "to fish"), 0.9, 0.9, 0.9)
     GameTooltip:AddLine("|cff888888Shift+Drag|r to move  •  |cff888888/ffish config|r settings", 0.55, 0.55, 0.55)
     GameTooltip:AddLine("|cff888888WoW Forever Fishing Addon ByJTT|r", 0.45, 0.45, 0.45)
     GameTooltip:Show()
@@ -472,45 +546,73 @@ local function BuildButtonStates()
     local known = ProfessionFishingKnown()
     local skill = PlayerFishingSkill()
 
-    -- 1. Cast button (always present)
-    local status = nil
     if not known then
-        status = "Fishing not learned — visit a fishing trainer."
-    elseif skill then
-        status = "Skill " .. tostring(skill)
+        -- No fishing learned: single button explains what to do (non-secure hint only).
+        table.insert(states, {
+            id = "cast",
+            title = "Learn Fishing First",
+            verb = "for help",
+            icon = "Interface\\Icons\\INV_Fishingpole_01",
+            hint = "Visit a fishing trainer in any capital city.",
+            status = "Fishing not learned — visit a fishing trainer.",
+            color = { 0.6, 0.6, 0.6 },
+            enabled = false,
+            dimmed = true,
+            action = { kind = "macro", macro = "/run print('|cff4dd0e6Forever Fishing:|r Visit a fishing trainer to learn Fishing.')" },
+        })
+        return states
     end
+
+    -- ONE smart button: equip best pole -> apply lure (only if pole is bare) -> cast.
+    local equipped = EquippedPole()
+    local _, bagPole = BestBagPole()
+    local needPole = not equipped and bagPole or nil
+    local lureCount, bestLure = ItemCountAny(LURES)
+    local hasLure = PoleHasLure()
+    local useLure = (not hasLure) and bestLure or nil
+
+    local statusBits = {}
+    if skill then table.insert(statusBits, "Skill " .. tostring(skill)) end
+    if equipped then
+        table.insert(statusBits, "Pole: " .. (equipped.name or "?") .. (hasLure and " + lure" or " (no lure)"))
+    elseif needPole then
+        table.insert(statusBits, "Will equip: " .. (needPole.name or "?"))
+    else
+        table.insert(statusBits, "No pole found — buy a Fishing Pole from a vendor.")
+    end
+    if useLure then
+        table.insert(statusBits, "Will apply: " .. (useLure.name or "?") .. " x" .. tostring(lureCount))
+    elseif hasLure then
+        table.insert(statusBits, "Lure active")
+    elseif bestLure then
+        -- have lures but pole already enchanted; nothing to do
+    else
+        table.insert(statusBits, "No lures in bags (optional)")
+    end
+
+    local hint
+    if needPole and useLure then
+        hint = "One click: equips " .. (needPole.name or "pole") .. ", applies " .. (useLure.name or "lure") .. ", casts."
+    elseif needPole then
+        hint = "One click: equips " .. (needPole.name or "pole") .. " and casts."
+    elseif useLure then
+        hint = "One click: applies " .. (useLure.name or "lure") .. " and casts."
+    else
+        hint = "One click to cast. Bite = flash + sound, then click the bobber."
+    end
+
     table.insert(states, {
         id = "cast",
-        title = "Cast Fishing",
-        verb = "to cast",
+        title = "Fish",
+        verb = "to fish — equips pole, applies lure, casts, all in one click",
         icon = "Interface\\Icons\\INV_Fishingpole_01",
-        hint = "One-click cast. Double-click also works.",
-        status = status,
+        hint = hint,
+        status = table.concat(statusBits, "  •  "),
         color = { 0.30, 0.83, 0.91 },
-        enabled = known,
-        dimmed = not known,
-        action = { kind = "spell", spell = spellName },
+        enabled = true,
+        dimmed = false,
+        action = { kind = "macro", macro = BuildFishingMacro(needPole, useLure, spellName) },
     })
-
-    -- 2. Lure button (only when a lure exists in bags)
-    local lureCount, bestLure = ItemCountAny(LURES)
-    if bestLure then
-        table.insert(states, {
-            id = "lure",
-            title = "Apply " .. (bestLure.name or "Lure"),
-            verb = "to apply lure",
-            icon = "Interface\\Icons\\INV_Misc_Food_26",
-            hint = (bestLure.name or "Lure") .. " (+" .. tostring(bestLure.bonus or 0) .. ") x" .. tostring(lureCount),
-            status = "Best lure in bags: " .. (bestLure.name or "?"),
-            color = { 0.55, 0.90, 0.45 },
-            enabled = true,
-            dimmed = false,
-            action = { kind = "item", item = bestLure.name or bestLure.id },
-            _lureEntry = bestLure,
-        })
-    end
-
-    -- 3. Pole info is shown in stats/tooltip; no extra button (keeps bar minimal).
 
     return states
 end
@@ -531,7 +633,7 @@ local function ApplyStates(states)
             btn.icon:SetDesaturated(st.dimmed and true or false)
             btn.icon:SetAlpha(st.dimmed and 0.55 or 1)
         end
-        if btn.label then btn.label:SetText(st.id == "cast" and "Fish" or (st.id == "lure" and "Lure" or "?")) end
+        if btn.label then btn.label:SetText("Fish!") end
         if st.color and btn._ringEdges then
             btn._ringColor = st.color
         end
@@ -632,10 +734,11 @@ local function ShowOnboarding(force)
         mkBtn("Later", 125, 16, 70, function() DismissOnboarding(false) end)
     end
     onboard.body:SetText(
-        "One-click fishing with lure helpers, bite alert and a catch tracker.\n\n" ..
-        "• Click |cff00ff00Fish|r to cast. |cff888888Shift+Drag|r to move (or unlock via /ffish).\n" ..
-        "• Click |cff00ff00Lure|r when it appears to re-apply your best lure.\n" ..
-        "• Catches are tracked per session and per zone (/ffish stats).\n\n" ..
+        "One button does it all: equips your best pole, applies a lure,\n" ..
+        "and casts — every click is ready to fish.\n\n" ..
+        "• Click |cff00ff00Fish!|r once. When it flashes + sounds, click the bobber.\n" ..
+        "• Hover the button to see your pole, lure and skill.\n" ..
+        "• |cff888888Shift+Drag|r to move. Catches are tracked automatically.\n\n" ..
         "Support: " .. (ByJTT.Brand.supportLabel or "Buy Me a Coffee") .. " (placeholder) — " .. (ByJTT.Brand.support or "") .. "\n" ..
         "Use |cff4dd0e6/ffish config|r for settings."
     )
@@ -876,6 +979,10 @@ root:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
             fishingActive = true
             sessionCasts = sessionCasts + 1
             if DB.session then DB.session.casts = sessionCasts end
+            -- Re-evaluate pole/lure state for the next cast (lure may be consumed).
+            if DB and C_Timer and C_Timer.After then
+                C_Timer.After(1.0, function() if DB then Refresh() end end)
+            end
         end
     elseif event == "UNIT_SPELLCAST_CHANNEL_STOP" or event == "UNIT_SPELLCAST_INTERRUPTED"
         or event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_SUCCEEDED" then
@@ -886,11 +993,20 @@ root:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         if text:find("^You receive loot:") or text:find("^You receive item:") then
             local link = text:match("(|Hitem:.-|h%[.-%]|h)")
             local qty = tonumber(text:match("|h%[.-%]|hx(%d+)")) or 1
-            if link then RecordLoot(link, qty) end
+            if link then
+                RecordLoot(link, qty)
+                -- Loot may include lures/poles — refresh button plan shortly after.
+                if DB and C_Timer and C_Timer.After then
+                    C_Timer.After(0.5, function() if DB then Refresh() end end)
+                end
+            end
         end
     elseif event == "CHAT_MSG_SPELL_SELF_DAMAGE" or event == "CHAT_MSG_SPELL_SELF_BUFF" then
         -- classic bite cue lives in the float text; UNIT_SPELLCAST_EVENTS cover most cases.
     elseif event == "SPELLS_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
+        if DB then Refresh() end
+    elseif event == "BAG_UPDATE" then
+        -- Lures/poles move in and out of bags — re-evaluate (cheap: bag scans only).
         if DB then Refresh() end
     elseif DB then
         Refresh()
@@ -910,6 +1026,7 @@ root:RegisterEvent("UNIT_SPELLCAST_FAILED")
 root:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
 root:RegisterEvent("CHAT_MSG_LOOT")
 root:RegisterEvent("CHAT_MSG_MONSTER_EMOTE")
+root:RegisterEvent("BAG_UPDATE")
 pcall(root.RegisterEvent, root, "PLAYER_LOGOUT")
 pcall(root.RegisterEvent, root, "PLAYER_LEAVING_WORLD")
 
@@ -930,7 +1047,10 @@ end)
 -- Slash commands (/ffish). Slash parity with settings.
 --------------------------------------------------------------------------------
 local function Help()
-    Print(DISPLAY_NAME .. " — commands:")
+    Print(DISPLAY_NAME .. " — one button does it all:")
+    print("  Click |cff00ff00Fish!|r once: equips pole, applies lure, casts.")
+    print("  When it flashes + sounds: click the bobber to loot.")
+    print("  Hover the button to see pole / lure / skill status.")
     print("  /ffish config              open settings (WoW UI)")
     print("  /ffish cast                cast fishing now")
     print("  /ffish lure                apply best lure in bags")
