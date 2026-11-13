@@ -1,0 +1,70 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime": {
+    "version": "Lua 5.1"
+  },
+  "workspace": {
+    "checkThirdParty": false
+  },
+  "diagnostics": {
+    "globals": [
+      "CreateFrame",
+      "UIParent",
+      "DEFAULT_CHAT_FRAME",
+      "SlashCmdList",
+      "SLASH_FOREVERFISHING1",
+      "ForeverFishingDB",
+      "FishingBobberFrame",
+      "InCombatLockdown",
+      "UnitAffectingCombat",
+      "UnitExists",
+      "UnitName",
+      "UnitCastingInfo",
+      "UnitChannelInfo",
+      "UnitOnTaxi",
+      "GetSpellInfo",
+      "GetSpellCooldown",
+      "GetSpellTexture",
+      "IsSpellKnown",
+      "IsCurrentSpell",
+      "IsUsableSpell",
+      "GetItemInfo",
+      "GetItemCount",
+      "GetItemSpell",
+      "GetItemCooldown",
+      "IsEquippedItem",
+      "GetInventoryItemID",
+      "GetInventoryItemLink",
+      "GetInventoryItemTexture",
+      "GetContainerNumSlots",
+      "GetContainerItemID",
+      "GetContainerItemInfo",
+      "C_Container",
+      "C_Item",
+      "C_Spell",
+      "C_Timer",
+      "GetProfessions",
+      "GetProfessionInfo",
+      "GetNumLootItems",
+      "LootSlot",
+      "GetTime",
+      "GetLocale",
+      "PlaySound",
+      "Settings",
+      "InterfaceOptions_AddCategory",
+      "InterfaceOptionsFrame_OpenToCategory",
+      "GameFontNormal",
+      "GameFontNormalLarge",
+      "GameFontHighlight",
+      "GameFontHighlightSmall",
+      "GameFontHighlightLarge"
+    ],
+    "disable": [
+      "lowercase-global",
+      "undefined-field"
+    ]
+  },
+  "telemetry": {
+    "enable": false
+  }
+}
