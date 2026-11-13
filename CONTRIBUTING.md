@@ -1,4 +1,4 @@
-# Contributing — WoW Forever Fishing Addon ByJTT
+# Contributing - WoW Forever Fishing Addon ByJTT
 
 Thanks for helping improve **WoW Forever Fishing Addon ByJTT** (ByJTT foundation addon for WoW Forever). Keep it **small, reliable, taint-safe, and WoW-authentic**.
 
@@ -8,7 +8,7 @@ Thanks for helping improve **WoW Forever Fishing Addon ByJTT** (ByJTT foundation
 - **Combat lockdown:** do not change protected/secure attributes or restricted visibility in combat; defer to `PLAYER_REGEN_ENABLED`/pending.
 - **Minimal:** no frameworks/libs (no Ace) unless clearly necessary. Prefer simple Lua, small focused functions, no dead code.
 - **Privacy:** no personal data, account data, tokens/secrets, hardcoded local absolute paths, or `WTF`/SavedVariables data in commits/PRs. Public branding links (byjtt.com, GitHub, repo, support placeholder) are OK.
-- **Foundation discipline:** preserve compat providers, schema migrations (additive; never destructively drop unknown keys), `/ffish` + settings parity, WoW Forever API feature-detection/fallbacks, and “AddonName ByJTT” branding. Lure/pole/spell lookups keep **ID + name fallback** coverage.
+- **Foundation discipline:** preserve compat providers, schema migrations (additive; never destructively drop unknown keys), `/ffish` + settings parity, WoW Forever API feature-detection/fallbacks, and "AddonName ByJTT" branding. Lure/pole/spell lookups keep **ID + name fallback** coverage.
 - **Release sync:** TOC `## Version`, Lua `VERSION`/`SCHEMA` (as applicable), `CHANGELOG.md`, and git tag must match (SemVer).
 
 ## Reporting issues

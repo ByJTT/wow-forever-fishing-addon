@@ -1,4 +1,4 @@
--- wow-forever-fishing-addon (WoW Forever) — ByJTT
+-- wow-forever-fishing-addon (WoW Forever) - ByJTT
 -- Display name: "WoW Forever Fishing Addon ByJTT" (AddonName ByJTT style)
 -- One-click fishing, lure & pole helpers, bite alert + catch tracker.
 -- https://github.com/ByJTT/wow-forever-fishing-addon
@@ -36,7 +36,7 @@ ns._brand = ByJTT.Brand
 local FISHING_SPELL_ID = 7620
 local FISHING_SPELL_NAMES = { "Fishing" }
 
--- Fishing poles (known classic items — ranked for "best pole in bags").
+-- Fishing poles (known classic items - ranked for "best pole in bags").
 -- id + fallback name so the addon survives missing/incorrect IDs.
 local POLES = {
     { id = 19970, name = "Arcanite Fishing Pole", bonus = 40 },
@@ -173,7 +173,7 @@ local function ProfessionFishingKnown()
     return IsSpellKnownAny({ FISHING_SPELL_ID }, FISHING_SPELL_NAMES)
 end
 
--- Which known pole is equipped right now? (nil if none of ours.)
+-- Which fishing pole is equipped right now? (nil if not a known/recognized pole.)
 local function EquippedPole()
     if not GetInventoryItemID then return nil, nil end
     local itemID = Compat.SafeCall(GetInventoryItemID, "player", 16)
@@ -181,9 +181,17 @@ local function EquippedPole()
     for _, p in ipairs(POLES) do
         if p.id == itemID then return p, itemID end
     end
-    -- Equipped pole we don't recognise (custom/unknown ID): still a pole.
-    if GetItemInfo and Compat.SafeCall(GetItemInfo, itemID) then
-        return { id = itemID, name = "Fishing Pole", bonus = 0 }, itemID
+    local itemName = Compat.SafeCall(GetItemInfo, itemID)
+    if type(itemName) == "string" and itemName ~= "" then
+        local lower = itemName:lower()
+        for _, p in ipairs(POLES) do
+            if type(p.name) == "string" and lower == p.name:lower() then
+                return p, itemID
+            end
+        end
+        if lower:find("fishing pole", 1, true) or lower:find("fishing rod", 1, true) then
+            return { id = itemID, name = itemName, bonus = 0 }, itemID
+        end
     end
     return nil, nil
 end
@@ -248,6 +256,7 @@ local GLOBAL_DEFAULTS = {
     _schema = SCHEMA,
     _version = VERSION,
     locked = true,
+    hidden = false,
     scale = 1.0,
     alpha = 1.0,
     pulse = true,
@@ -342,7 +351,7 @@ local function ApplyVisuals()
     root:SetAlpha(DB.alpha or 1)
 end
 
--- Secure attribute apply — ONLY out of combat.
+-- Secure attribute apply - ONLY out of combat.
 local function UpdateSecure(btn, action)
     if InCombatLockdown and InCombatLockdown() then pendingSecure = true; return false end
     btn:SetAttribute("type1", nil); btn:SetAttribute("spell1", nil)
@@ -380,18 +389,31 @@ end
 local function SetTooltip(btn)
     GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
     GameTooltip:SetText(btn._title or "Fish!", 1, 1, 1)
-    if btn._status then
-        -- Plain-English status lines, one per line.
-        for raw in tostring(btn._status):gmatch("[^•]+") do
-            local bit = raw:gsub("^%s+", ""):gsub("%s+$", "")
-            if bit ~= "" then GameTooltip:AddLine("• " .. bit, 0.8, 0.9, 1, true) end
+
+    local status = btn._status
+    if status and status ~= "" then
+        local shown = false
+        for bit in tostring(status):gmatch("[^%-\n]+") do
+            bit = bit:gsub("^%s+", ""):gsub("%s+$", "")
+            if bit ~= "" then
+                GameTooltip:AddLine("-  " .. bit, 0.8, 0.9, 1, true)
+                shown = true
+            end
+        end
+        if not shown then
+            GameTooltip:AddLine(tostring(status), 0.8, 0.9, 1, true)
         end
     end
+
     local a = btn._action
-    if a and a.hint then GameTooltip:AddLine(" ") GameTooltip:AddLine(a.hint, 0.95, 0.95, 0.6, true) end
+    if a and a.hint and a.hint ~= "" then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(tostring(a.hint), 0.95, 0.95, 0.6, true)
+    end
+
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine("|cff00ff00Click|r " .. (btn._verb or "to fish"), 0.9, 0.9, 0.9)
-    GameTooltip:AddLine("|cff888888Shift+Drag|r to move  •  |cff888888/ffish config|r settings", 0.55, 0.55, 0.55)
+    GameTooltip:AddLine("|cff888888Shift+Drag|r to move - |cff888888/ffish config|r settings", 0.55, 0.55, 0.55)
     GameTooltip:AddLine("|cff888888WoW Forever Fishing Addon ByJTT|r", 0.45, 0.45, 0.45)
     GameTooltip:Show()
 end
@@ -500,7 +522,22 @@ end
 -- Tracker state
 --------------------------------------------------------------------------------
 local sessionCasts, sessionCatches = 0, 0
-local fishingActive = false -- bobber out
+local fishingActive = false -- bobber out (channeling)
+local lastFishingEventAt = 0
+
+local function MarkFishingEvent()
+    if GetTime then
+        lastFishingEventAt = GetTime()
+    else
+        lastFishingEventAt = (lastFishingEventAt or 0) + 1
+    end
+end
+
+local function RecentlyFishing(window)
+    window = window or 12
+    if not GetTime then return fishingActive end
+    return fishingActive or (lastFishingEventAt > 0 and (GetTime() - lastFishingEventAt) <= window)
+end
 
 local function EnsureSession()
     if not DB.session then
@@ -526,14 +563,22 @@ end
 
 local function RecordLoot(itemLink, quantity)
     if not itemLink then return end
+    -- Only count loot during/shortly after fishing to avoid tracking unrelated mob/chest loot.
+    if not RecentlyFishing(12) then return end
+
     local name = itemLink:match("%[(.-)%]") or itemLink
-    quantity = quantity or 1
+    quantity = tonumber(quantity) or 1
+    if quantity < 1 then quantity = 1 end
+
     DB.catches[name] = (DB.catches[name] or 0) + quantity
     local zone = CurrentZoneName()
     DB.zones[zone] = DB.zones[zone] or {}
     DB.zones[zone][name] = (DB.zones[zone][name] or 0) + quantity
+
     sessionCatches = sessionCatches + 1
+    EnsureSession()
     if DB.session then DB.session.catches = sessionCatches end
+    MarkFishingEvent()
     Debug("caught: " .. tostring(name) .. " x" .. tostring(quantity) .. " in " .. tostring(zone))
 end
 
@@ -554,7 +599,7 @@ local function BuildButtonStates()
             verb = "for help",
             icon = "Interface\\Icons\\INV_Fishingpole_01",
             hint = "Visit a fishing trainer in any capital city.",
-            status = "Fishing not learned — visit a fishing trainer.",
+            status = "Fishing not learned - visit a fishing trainer.",
             color = { 0.6, 0.6, 0.6 },
             enabled = false,
             dimmed = true,
@@ -578,7 +623,7 @@ local function BuildButtonStates()
     elseif needPole then
         table.insert(statusBits, "Will equip: " .. (needPole.name or "?"))
     else
-        table.insert(statusBits, "No pole found — buy a Fishing Pole from a vendor.")
+        table.insert(statusBits, "No pole found - buy a Fishing Pole from a vendor.")
     end
     if useLure then
         table.insert(statusBits, "Will apply: " .. (useLure.name or "?") .. " x" .. tostring(lureCount))
@@ -604,10 +649,10 @@ local function BuildButtonStates()
     table.insert(states, {
         id = "cast",
         title = "Fish",
-        verb = "to fish — equips pole, applies lure, casts, all in one click",
+        verb = "to fish - equips pole, applies lure, casts, all in one click",
         icon = "Interface\\Icons\\INV_Fishingpole_01",
         hint = hint,
-        status = table.concat(statusBits, "  •  "),
+        status = table.concat(statusBits, " - "),
         color = { 0.30, 0.83, 0.91 },
         enabled = true,
         dimmed = false,
@@ -659,13 +704,37 @@ local function ApplyStates(states)
     end
     Layout(shown)
     ApplyVisuals()
-    if #shown > 0 then root:Show() else root:Hide() end
+    if DB.hidden then
+        root:Hide()
+    elseif #shown > 0 then
+        root:Show()
+    else
+        root:Hide()
+    end
 end
 
-function ns.Refresh()
+local refreshQueued = false
+
+local function DoRefreshNow()
+    refreshQueued = false
     if not DB then return end
     if InCombat() then pendingSecure = true; return end
     ApplyStates(BuildButtonStates())
+end
+
+function ns.Refresh(soon)
+    if not DB then return end
+    if soon then
+        if refreshQueued then return end
+        refreshQueued = true
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0.15, DoRefreshNow)
+        else
+            DoRefreshNow()
+        end
+        return
+    end
+    DoRefreshNow()
 end
 local Refresh = ns.Refresh
 
@@ -719,7 +788,7 @@ local function ShowOnboarding(force)
         onboard.body = body
         local by = onboard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         by:SetPoint("TOP", title, "BOTTOM", 0, -2)
-        by:SetText("|cffaaaaaaby ByJTT · " .. (ByJTT.Brand.web or "byjtt.com") .. "|r")
+        by:SetText("|cffaaaaaaby ByJTT - " .. (ByJTT.Brand.web or "byjtt.com") .. "|r")
         onboard.by = by
         local function mkBtn(text, x, y, w, onClick)
             local b = CreateFrame("Button", nil, onboard, "UIPanelButtonTemplate")
@@ -735,11 +804,11 @@ local function ShowOnboarding(force)
     end
     onboard.body:SetText(
         "One button does it all: equips your best pole, applies a lure,\n" ..
-        "and casts — every click is ready to fish.\n\n" ..
-        "• Click |cff00ff00Fish!|r once. When it flashes + sounds, click the bobber.\n" ..
-        "• Hover the button to see your pole, lure and skill.\n" ..
-        "• |cff888888Shift+Drag|r to move. Catches are tracked automatically.\n\n" ..
-        "Support: " .. (ByJTT.Brand.supportLabel or "Buy Me a Coffee") .. " (placeholder) — " .. (ByJTT.Brand.support or "") .. "\n" ..
+        "and casts - every click is ready to fish.\n\n" ..
+        "-  Click |cff00ff00Fish!|r once. When it flashes + sounds, click the bobber.\n" ..
+        "-  Hover the button to see your pole, lure and skill.\n" ..
+        "-  |cff888888Shift+Drag|r to move. Catches are tracked automatically.\n\n" ..
+        "Support: " .. (ByJTT.Brand.supportLabel or "Buy Me a Coffee") .. " (placeholder) - " .. (ByJTT.Brand.support or "") .. "\n" ..
         "Use |cff4dd0e6/ffish config|r for settings."
     )
     onboard:Show()
@@ -752,7 +821,7 @@ ns.ShowOnboarding = ShowOnboarding
 local optionsPanel
 local function EnsureOptionsPanel()
     if optionsPanel then return optionsPanel end
-    local panel = CreateFrame("Frame", ADDON_NAME .. "OptionsPanel", UIParent, "BackdropTemplate")
+    local panel = CreateFrame("Frame", ADDON_NAME .. "OptionsPanel", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
     panel.name = DISPLAY_NAME
     panel:Hide() -- shown on demand (Blizzard settings, or standalone fallback)
     local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -812,8 +881,8 @@ local function EnsureOptionsPanel()
     about:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 16, 14)
     about:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -16, 14)
     about:SetJustifyH("LEFT")
-    about:SetText("|cff888888" .. DISPLAY_NAME .. " · v" .. VERSION .. " · by " .. (ByJTT.Brand.name or "ByJTT") ..
-        " · " .. (ByJTT.Brand.web or "") .. " · " .. (ByJTT.Brand.github or "") ..
+    about:SetText("|cff888888" .. DISPLAY_NAME .. " - v" .. VERSION .. " - by " .. (ByJTT.Brand.name or "ByJTT") ..
+        " - " .. (ByJTT.Brand.web or "") .. " - " .. (ByJTT.Brand.github or "") ..
         "\nSupport (placeholder): " .. (ByJTT.Brand.support or "") .. "|r")
 
     optionsPanel = panel
@@ -848,7 +917,7 @@ function ns.OpenOptions()
     end
     -- Fallback: standalone movable dialog (Blizzard settings unavailable, e.g. Classic client).
     p:ClearAllPoints()
-    p:SetSize(560, 480)
+    p:SetSize(560, 500)
     p:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
     p:SetFrameStrata("DIALOG")
     p:SetClampedToScreen(true)
@@ -880,7 +949,7 @@ function ns.OpenOptions()
         p._closeBtn = close
     end
     p:Show()
-    Print("Options panel opened (standalone). Drag to move; Close button or /reload to dismiss.")
+    Print("Options panel opened (standalone). Drag to move; Close to dismiss.")
 end
 
 --------------------------------------------------------------------------------
@@ -901,7 +970,7 @@ function ns.PrintStats()
         Print("No lures in bags.")
     end
     local zone = CurrentZoneName()
-    Print("Zone: " .. tostring(zone) .. " — this session's zone catches:")
+    Print("Zone: " .. tostring(zone) .. " - this session's zone catches:")
     local zc = DB.zones[zone]
     if zc then
         local names = {}
@@ -913,7 +982,7 @@ function ns.PrintStats()
     else
         Print("  (none yet)")
     end
-    Print("Lifetime catches: " .. tostring(total) .. " — /ffish zones for the zone breakdown.")
+    Print("Lifetime catches: " .. tostring(total) .. " - /ffish zones for the zone breakdown.")
 end
 
 local function PrintZones()
@@ -942,22 +1011,25 @@ end
 --------------------------------------------------------------------------------
 local function OnBite()
     flashUntil = 2.5
-    DB.lastBiteAt = time()
+    if DB then DB.lastBiteAt = time() end
+    MarkFishingEvent()
     PlayBiteHint()
-    local btn = buttons["cast"]
-    if btn and btn:IsShown() then
-        -- brief visual emphasis handled by OnUpdate flash
-    end
     Debug("bite detected")
 end
 
 local function Init()
     EnsureDB()
     MigrateDB()
+    if DB.session then
+        sessionCasts = tonumber(DB.session.casts) or 0
+        sessionCatches = tonumber(DB.session.catches) or 0
+    else
+        sessionCasts, sessionCatches = 0, 0
+    end
     ApplyPosition(); ApplyVisuals()
     EnsureOptionsPanel()
     Refresh()
-    Print("v" .. VERSION .. " ready. " .. DISPLAY_NAME .. " · " .. (ByJTT.Brand.web or "byjtt.com") .. " · |cff4dd0e6/ffish config|r")
+    Print("v" .. VERSION .. " ready. " .. DISPLAY_NAME .. " - " .. (ByJTT.Brand.web or "byjtt.com") .. " - |cff4dd0e6/ffish config|r")
     if not DB.onboardingDone and not DB.onboardingDismissed then
         if C_Timer and C_Timer.After then
             C_Timer.After(1.5, function() if DB and not DB.onboardingDone and not DB.onboardingDismissed then ShowOnboarding(false) end end)
@@ -970,13 +1042,15 @@ end
 root:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
     if event == "PLAYER_LOGIN" then
         Init()
-    elseif event == "PLAYER_LOGOUT" or event == "PLAYER_LEAVING_WORLD" or event == "PLAYER_QUITING" then
+    elseif event == "PLAYER_LOGOUT" or event == "PLAYER_LEAVING_WORLD" or event == "PLAYER_QUITTING" then
         if DB then EndSession() end
     elseif event == "PLAYER_REGEN_ENABLED" then
         if DB and pendingSecure then Refresh() end
     elseif event == "UNIT_SPELLCAST_CHANNEL_START" then
         if arg1 == "player" then
             fishingActive = true
+            MarkFishingEvent()
+            EnsureSession()
             sessionCasts = sessionCasts + 1
             if DB.session then DB.session.casts = sessionCasts end
             -- Re-evaluate pole/lure state for the next cast (lure may be consumed).
@@ -986,34 +1060,40 @@ root:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         end
     elseif event == "UNIT_SPELLCAST_CHANNEL_STOP" or event == "UNIT_SPELLCAST_INTERRUPTED"
         or event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_SUCCEEDED" then
-        if arg1 == "player" then fishingActive = false end
+        if arg1 == "player" then
+            fishingActive = false
+            MarkFishingEvent()
+            if DB and C_Timer and C_Timer.After then
+                C_Timer.After(0.25, function() if DB then Refresh() end end)
+            end
+        end
     elseif event == "CHAT_MSG_LOOT" then
-        -- "You receive loot: [item]xN" — only count the player's own loot while fishing.
+        -- "You receive loot: [item]xN" - count only when recently fishing (bobber loot happens after channel ends).
         local text = arg1 or ""
         if text:find("^You receive loot:") or text:find("^You receive item:") then
             local link = text:match("(|Hitem:.-|h%[.-%]|h)")
             local qty = tonumber(text:match("|h%[.-%]|hx(%d+)")) or 1
             if link then
                 RecordLoot(link, qty)
-                -- Loot may include lures/poles — refresh button plan shortly after.
+                -- Loot may include lures/poles - refresh button plan shortly after.
                 if DB and C_Timer and C_Timer.After then
                     C_Timer.After(0.5, function() if DB then Refresh() end end)
                 end
             end
         end
-    elseif event == "CHAT_MSG_SPELL_SELF_DAMAGE" or event == "CHAT_MSG_SPELL_SELF_BUFF" then
-        -- classic bite cue lives in the float text; UNIT_SPELLCAST_EVENTS cover most cases.
     elseif event == "SPELLS_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
         if DB then Refresh() end
-    elseif event == "BAG_UPDATE" then
-        -- Lures/poles move in and out of bags — re-evaluate (cheap: bag scans only).
-        if DB then Refresh() end
+    elseif event == "BAG_UPDATE" or event == "BAG_UPDATE_DELAYED" then
+        -- Lure/pole/loot inventory changes can affect the smart button plan.
+        if DB then Refresh(true) end
+    elseif event == "PLAYER_EQUIPMENT_CHANGED" or event == "UNIT_INVENTORY_CHANGED" or event == "SKILL_LINES_CHANGED" or event == "CHAT_MSG_SKILL" then
+        if DB then Refresh(true) end
     elseif DB then
-        Refresh()
+        Refresh(true)
     end
 end)
 
--- Bite detection: the classic reliable cue is the bobber splash — without a
+-- Bite detection: the classic reliable cue is the bobber splash - without a
 -- dedicated event we listen for the "fish bites" emote + channel state.
 root:RegisterEvent("PLAYER_LOGIN")
 root:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -1025,20 +1105,27 @@ root:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 root:RegisterEvent("UNIT_SPELLCAST_FAILED")
 root:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
 root:RegisterEvent("CHAT_MSG_LOOT")
-root:RegisterEvent("CHAT_MSG_MONSTER_EMOTE")
 root:RegisterEvent("BAG_UPDATE")
+if root.RegisterEvent then
+    pcall(root.RegisterEvent, root, "BAG_UPDATE_DELAYED")
+    pcall(root.RegisterEvent, root, "PLAYER_EQUIPMENT_CHANGED")
+    pcall(root.RegisterEvent, root, "UNIT_INVENTORY_CHANGED")
+    pcall(root.RegisterEvent, root, "SKILL_LINES_CHANGED")
+    pcall(root.RegisterEvent, root, "CHAT_MSG_SKILL")
+end
 pcall(root.RegisterEvent, root, "PLAYER_LOGOUT")
 pcall(root.RegisterEvent, root, "PLAYER_LEAVING_WORLD")
+pcall(root.RegisterEvent, root, "PLAYER_QUITTING")
 
--- Emote handler second registration path (bite emote "The fish bites!")
+-- Emote handler second registration path (bite emote "The fish bites!"/splash)
 local emoteFrame = CreateFrame("Frame")
 emoteFrame:RegisterEvent("CHAT_MSG_MONSTER_EMOTE")
 emoteFrame:RegisterEvent("CHAT_MSG_TEXT_EMOTE")
 emoteFrame:SetScript("OnEvent", function(_, _, text)
     if type(text) == "string" then
         local lower = text:lower()
-        if lower:find("bites") or lower:find("splash") then
-            if fishingActive then OnBite() end
+        if (lower:find("bite", 1, true) or lower:find("splash", 1, true) or lower:find("bites", 1, true)) and RecentlyFishing(30) then
+            OnBite()
         end
     end
 end)
@@ -1047,16 +1134,17 @@ end)
 -- Slash commands (/ffish). Slash parity with settings.
 --------------------------------------------------------------------------------
 local function Help()
-    Print(DISPLAY_NAME .. " — one button does it all:")
+    Print(DISPLAY_NAME .. " - one button does it all:")
     print("  Click |cff00ff00Fish!|r once: equips pole, applies lure, casts.")
     print("  When it flashes + sounds: click the bobber to loot.")
     print("  Hover the button to see pole / lure / skill status.")
     print("  /ffish config              open settings (WoW UI)")
-    print("  /ffish cast                cast fishing now")
+    print("  /ffish show|hide           show/hide the fishing bar")
+    print("  /ffish cast                smart fish now (equip pole, apply lure if bare, cast)")
     print("  /ffish lure                apply best lure in bags")
     print("  /ffish stats               session + zone summary")
     print("  /ffish zones               full zone breakdown")
-    print("  /ffish reset              end session, start fresh counters")
+    print("  /ffish reset               end session, start fresh counters")
     print("  /ffish lock | unlock       lock/unlock position (Shift+Drag moves)")
     print("  /ffish move                show & unlock to reposition")
     print("  /ffish scale <0.6-2.0>     button scale")
@@ -1084,22 +1172,81 @@ SlashCmdList.FOREVERFISHING = function(msg)
     elseif cmd == "lock" then
         DB.locked = true; Print("Locked. (Shift+Drag still moves.)"); Refresh()
     elseif cmd == "unlock" or cmd == "move" then
-        DB.locked = false
-        Print("Unlocked - drag buttons (Shift+Drag) to move, then /ffish lock."); Refresh()
+        DB.locked = false; DB.hidden = false
+        Print("Unlocked - drag buttons (Shift+Drag) to move, then /ffish lock.")
+        root:Show(); Refresh()
+    elseif cmd == "show" then
+        DB.hidden = false
+        root:Show(); Refresh(); Print("Fishing bar shown.")
+    elseif cmd == "hide" then
+        if InCombat() then
+            Print("Cannot hide in combat.")
+        else
+            DB.hidden = true
+            root:Hide(); Print("Fishing bar hidden. Use /ffish show to bring it back.")
+        end
     elseif cmd == "cast" or cmd == "fish" then
-        local spell = FishingSpellName()
-        if CastSpellByName then CastSpellByName(spell); Print("Casting " .. spell .. "...")
-        else Print("Cast unavailable.") end
+        if InCombat() then
+            Print("Cannot cast in combat.")
+        elseif not ProfessionFishingKnown() then
+            Print("Fishing not learned - visit a fishing trainer to learn Fishing.")
+        else
+            local spell = FishingSpellName()
+            local did = {}
+            local equipped = EquippedPole()
+            local _, bagPole = BestBagPole()
+            if not equipped and bagPole then
+                local equipName = bagPole.name or bagPole.id
+                if equipName and EquipItemByName then
+                    pcall(EquipItemByName, equipName)
+                    table.insert(did, "equipping " .. tostring(bagPole.name or "pole"))
+                end
+            end
+            local hasLure = PoleHasLure()
+            local lureCount, bestLure = ItemCountAny(LURES)
+            if (not hasLure) and bestLure then
+                if UseItemByName then pcall(UseItemByName, bestLure.name or bestLure.id) end
+                if UseInventoryItem then pcall(UseInventoryItem, 16) end
+                table.insert(did, "applying " .. tostring(bestLure.name or "lure"))
+            end
+            if CastSpellByName then
+                pcall(CastSpellByName, spell)
+                table.insert(did, "casting " .. tostring(spell))
+                Print("Fish: " .. table.concat(did, ", ") .. ".")
+            elseif CastSpell then
+                local sid = FISHING_SPELL_ID
+                pcall(CastSpell, sid, "spell")
+                Print("Fish: casting " .. tostring(spell) .. "...")
+            else
+                Print("Cast unavailable on this client.")
+            end
+            Refresh()
+        end
     elseif cmd == "lure" then
         local _, best = ItemCountAny(LURES)
-        if best and UseItemByName then
-            UseItemByName(best.name or best.id)
-            Print("Applying " .. (best.name or "lure") .. "...")
-        elseif best then
-            Print("Best lure: " .. (best.name or "?") .. " — click the Lure button.")
-        else
+        if not best then
             Print("No lures in bags.")
+        elseif InCombat() then
+            Print("In combat - click the Lure button when safe (or try again out of combat).")
+        elseif PoleHasLure() then
+            Print("Pole already has an active lure.")
+            Refresh(true)
+        elseif best and UseItemByName then
+            local ok = pcall(UseItemByName, best.name or best.id)
+            if UseInventoryItem then pcall(UseInventoryItem, 16) end
+            if ok then
+                Print("Applying " .. (best.name or "lure") .. "...")
+                if C_Timer and C_Timer.After then
+                    C_Timer.After(0.5, function() if DB then Refresh() end end)
+                    C_Timer.After(1.5, function() if DB then Refresh() end end)
+                end
+            else
+                Print("Couldn't apply " .. (best.name or "lure") .. " right now - click the Fish!/Lure button.")
+            end
+        else
+            Print("Best lure: " .. (best.name or "?") .. " - click the Lure button.")
         end
+        Refresh(true)
     elseif cmd == "stats" then
         ns.PrintStats()
     elseif cmd == "zones" then
@@ -1117,11 +1264,26 @@ SlashCmdList.FOREVERFISHING = function(msg)
         OnBite(); Print("Bite alert test.")
     elseif cmd == "debug" then
         local skill = PlayerFishingSkill()
-        Print(string.format("v%s schema=%s combat=%s locked=%s skill=%s casts=%d catches=%d zone=%s",
-            VERSION, tostring(DB._schema), tostring(InCombat()), tostring(DB.locked),
-            tostring(skill), sessionCasts, sessionCatches, tostring(CurrentZoneName())))
+        local equipped = EquippedPole()
+        local _, bagPole = BestBagPole()
+        local hasLure = PoleHasLure()
         local lureCount, best = ItemCountAny(LURES)
+        local s = DB.session or {}
+        Print(string.format("v%s schema=%s combat=%s pending=%s locked=%s hidden=%s shown=%s bite=%s fishing=%s recent=%s skill=%s casts=%d catches=%d zone=%s",
+            VERSION, tostring(DB._schema), tostring(InCombat()), tostring(pendingSecure), tostring(DB.locked), tostring(DB.hidden),
+            tostring(root and root:IsShown()), tostring(DB.biteAlert), tostring(fishingActive), tostring(RecentlyFishing(12)),
+            tostring(skill), sessionCasts, sessionCatches, tostring(CurrentZoneName())))
+        Print("pole: equipped=" .. tostring(equipped and (equipped.name or equipped.id or "?") or "none")
+            .. " | bagBest=" .. tostring(bagPole and (bagPole.name or bagPole.id or "?") or "none")
+            .. " | hasLure=" .. tostring(hasLure))
         Print("lures: " .. (best and ((best.name or "?") .. " x" .. tostring(lureCount)) or "none"))
+        Print("session(db): casts=" .. tostring(s.casts or 0) .. " catches=" .. tostring(s.catches or 0) .. " started=" .. tostring(s.started and date("%H:%M:%S", s.started) or "n/a"))
+        local btn = buttons and buttons["cast"]
+        if btn then
+            Print("button: mode=" .. tostring(btn._mode) .. " title=" .. tostring(btn._title) .. " visible=" .. tostring(btn:IsShown()))
+        else
+            Print("button: none")
+        end
         local names = {}
         for n in pairs(DB.catches) do table.insert(names, n) end
         table.sort(names)

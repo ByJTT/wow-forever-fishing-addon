@@ -1,19 +1,20 @@
-# wow-forever-fishing-addon — WoW Forever Fishing Addon ByJTT
+# wow-forever-fishing-addon - WoW Forever Fishing Addon ByJTT
 
 > One-click fishing, lure & pole helpers, bite alert + session catch tracker for **World of Warcraft: Forever**. ByJTT foundation addon (solo dev studio: **ByJTT**).
 >
 > **Project status / full context (humans + AI):** see [`HANDOFF.md`](HANDOFF.md). Agent rules: [`AGENTS.md`](AGENTS.md).
 
 - Repo: https://github.com/ByJTT/wow-forever-fishing-addon
-- Display name (TOC Title, “AddonName ByJTT” style): `WoW Forever Fishing Addon ByJTT`
+- Display name (TOC Title, "AddonName ByJTT" style): `WoW Forever Fishing Addon ByJTT`
 - In-game addon folder name (critical, must remain stable): `ForeverFishing`
 - Purpose: one smart Fish! button (equips best pole, applies lure only if bare, casts), bite alert, catch + per-zone fish tracking.
 - Scope/target: World of Warcraft: Forever (Interface 16001, 30300). Feature-detected API fallbacks. No Ace/framework deps.
 - Install path: `<WoW Forever>/Interface/AddOns/ForeverFishing/ForeverFishing.toc`
 - Required in-game files: `ForeverFishing.toc`, `ForeverFishing.lua`.
-- Commands: `/ffish help|config|cast|lure|stats|zones|reset|test|debug|onboarding|rl` (see README).
+- Commands: `/ffish help|config|show|hide|cast|lure|stats|zones|reset|lock|unlock|move|scale|bite|test|debug|onboarding|rl` (see README). `/ffish cast` performs smart fish (equip pole, apply lure if bare, cast); `/ffish lure` applies best lure (out of combat).
+- Behavior: secure button/state refresh driven by spells, bag/equipment/skill/inventory, loot, combat, and channel events (best-effort, coalesced). Bite/catch tracking is best-effort and non-automated.
 - Safety: SecureActionButtonTemplate attribute casting; **no** `OnClick`/`PreClick`/`PostClick` on secure buttons; protected changes deferred out of combat (`InCombatLockdown`/`PLAYER_REGEN_ENABLED`).
-- Branding/support (public): by ByJTT · https://byjtt.com · https://github.com/ByJTT · Support placeholder: https://buymeacoffee.com/ByJTT (replace with real URL when ready).
+- Branding/support (public): by ByJTT - https://byjtt.com - https://github.com/ByJTT - Support placeholder: https://buymeacoffee.com/ByJTT (replace with real URL when ready).
 - Issues: include WoW Forever build/interface, addon version (`/ffish debug`), steps, expected/actual, Lua errors (`/console scriptErrors 1`). No account data/local personal paths.
 - License: MIT.
-- **Start here (full context):** [`HANDOFF.md`](HANDOFF.md) — current state, decisions, verification checklist, open items. Agent rules/invariants: [`AGENTS.md`](AGENTS.md).
+- **Start here (full context):** [`HANDOFF.md`](HANDOFF.md) - current state, decisions, verification checklist, open items. Agent rules/invariants: [`AGENTS.md`](AGENTS.md).
