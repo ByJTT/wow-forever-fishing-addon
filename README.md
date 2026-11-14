@@ -63,13 +63,14 @@ Source: https://github.com/ByJTT/wow-forever-fishing-addon
 /ffish show|hide      show/hide the fishing bar
 /ffish cast           smart fish now (equip pole, apply lure if bare, cast)
 /ffish lure           manually apply best lure in bags (usually automatic)
-/ffish stats           session + zone summary
+/ffish stats          session + zone summary
 /ffish zones          full zone breakdown
 /ffish reset          end session, start fresh counters
 /ffish lock|unlock    lock/unlock position (Shift+Drag moves)
 /ffish move           show buttons and unlock for repositioning
 /ffish scale <0.6-2>  button scale
 /ffish bite           toggle bite alert
+/ffish update         toggle peer update notifications (in-game, no internet)
 /ffish test           flash bite alert (test)
 /ffish debug          print status / tracker state
 /ffish onboarding     show onboarding
@@ -98,6 +99,11 @@ Source: https://github.com/ByJTT/wow-forever-fishing-addon
 - **Catches not tracked:** loot is parsed from your own `CHAT_MSG_LOOT`; group/raid loot assigned to others is not counted.
 - **Position/UI:** `/ffish move`, `/ffish reset`, or `/ffish config`.
 - **Report issues:** include WoW Forever build/interface, addon version (`/ffish debug`), steps, expected/actual, and Lua errors. No account data/local personal paths.
+
+## Updates
+
+- **Best/common (actual updates):** use an addon manager such as **CurseForge**, **WowUp**, or **Wago** when this addon is published there - managers detect new releases (via TOC/version metadata) and install updates for you. You can also download releases from the [GitHub repo](https://github.com/ByJTT/wow-forever-fishing-addon).
+- **In-game peer check (best-effort):** `/ffish update` (on by default) can notify you once per session if a group/raid/instance/guild peer runs a newer version (addon comms only, no internet). It cannot detect a new release when solo and cannot auto-install updates.
 
 ## Versioning & releases
 

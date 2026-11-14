@@ -265,6 +265,7 @@ local GLOBAL_DEFAULTS = {
     autoLure = false,      -- prompt/one-click re-lure (never fully automatic)
     point = "CENTER", relPoint = "CENTER", x = 0, y = -190,
     debug = false,
+    updateNotify = true,   -- peer version check via addon comms (no internet/auto-update)
     firstRun = true,
     onboardingDone = false,
     onboardingDismissed = false,
@@ -300,6 +301,7 @@ local function MigrateDB()
     if type(DB.zones) ~= "table" then DB.zones = {} end
     if type(DB.sessions) ~= "table" then DB.sessions = {} end
     ApplyDefaults(DB, GLOBAL_DEFAULTS)
+    if type(DB.updateNotify) ~= "boolean" then DB.updateNotify = GLOBAL_DEFAULTS.updateNotify end
     DB._schema = SCHEMA
     DB._version = VERSION
 end
@@ -332,6 +334,195 @@ local function Debug(msg)
 end
 ns.Print = Print
 ns.Debug = Debug
+
+--------------------------------------------------------------------------------
+-- Peer update notifier (best-effort, in-game addon comms only; no internet)
+-- Notifies once per session if a group/raid/instance/guild peer runs a newer
+-- version of THIS addon. Does NOT check CurseForge/GitHub and cannot auto-update.
+-- Actual updates: addon managers (CurseForge/WowUp/Wago) when released, or repo.
+--------------------------------------------------------------------------------
+ns.UPDATE_COMM_PREFIX = "BYJTTVER"
+ns.UPDATE_ADDON_KEY = ADDON_NAME
+
+local function UP_GetTime()
+    if type(GetTime) == "function" then
+        local ok, t = pcall(GetTime)
+        if ok and type(t) == "number" then return t end
+    end
+    return 0
+end
+
+local function UP_ParseVersion(v)
+    local t = {}
+    if type(v) ~= "string" then v = tostring(v or "") end
+    for n in v:gmatch("(%d+)") do t[#t + 1] = tonumber(n) or 0 end
+    if #t == 0 then t[1] = 0 end
+    return t
+end
+
+function ns:IsVersionNewer(remote, localv)
+    local r, l = UP_ParseVersion(remote), UP_ParseVersion(localv or VERSION)
+    local n = math.max(#r, #l)
+    for i = 1, n do
+        local rv, lv = r[i] or 0, l[i] or 0
+        if rv > lv then return true end
+        if rv < lv then return false end
+    end
+    return false
+end
+
+local function UP_PlayerName()
+    if type(UnitName) ~= "function" then return nil end
+    local ok, name = pcall(UnitName, "player")
+    if ok and type(name) == "string" and name ~= "" then return name end
+    return nil
+end
+
+local function UP_IsSelfSender(sender)
+    if type(sender) ~= "string" or sender == "" then return false end
+    local me = UP_PlayerName()
+    if not me then return false end
+    if sender == me then return true end
+    local sshort = sender:match("^([^%-]+)") or sender
+    if sshort == me then return true end
+    if type(Ambiguate) == "function" then
+        local ok, a = pcall(Ambiguate, sender, "short")
+        if ok and a == me then return true end
+    end
+    return false
+end
+
+function ns:RegisterUpdatePrefix()
+    if self._updatePrefixRegistered then return true end
+    local prefix = self.UPDATE_COMM_PREFIX
+    local ok = false
+    if C_ChatInfo and type(C_ChatInfo.RegisterAddonMessagePrefix) == "function" then
+        pcall(C_ChatInfo.RegisterAddonMessagePrefix, prefix)
+        if C_ChatInfo.IsAddonMessagePrefixRegistered then
+            local rok, reg = pcall(C_ChatInfo.IsAddonMessagePrefixRegistered, prefix)
+            ok = (rok and reg and true) or true
+        else
+            ok = true
+        end
+    elseif type(RegisterAddonMessagePrefix) == "function" then
+        pcall(RegisterAddonMessagePrefix, prefix)
+        ok = true
+    end
+    self._updatePrefixRegistered = ok and true or false
+    return self._updatePrefixRegistered
+end
+
+local function UP_CanChatSend()
+    local inInstance = false
+    if type(IsInGroup) == "function" and type(LE_PARTY_CATEGORY_INSTANCE) == "number" then
+        local ok, v = pcall(IsInGroup, LE_PARTY_CATEGORY_INSTANCE)
+        inInstance = ok and v and true or false
+    elseif type(IsInInstance) == "function" then
+        local ok, _, it = pcall(IsInInstance)
+        inInstance = ok and (it == "party" or it == "raid" or it == "scenario" or it == "pvp" or it == "arena") or false
+    end
+    local inRaid = false
+    if type(IsInRaid) == "function" then local ok,v=pcall(IsInRaid); inRaid = ok and v and true or false end
+    local inParty = false
+    if type(IsInGroup) == "function" then local ok,v=pcall(IsInGroup); inParty = ok and v and true or false end
+    local inGuild = false
+    if type(IsInGuild) == "function" then local ok,v=pcall(IsInGuild); inGuild = ok and v and true or false end
+    if type(GetNumGroupMembers) == "function" then
+        local ok, n = pcall(GetNumGroupMembers); n = (ok and tonumber(n)) or 0
+        if n <= 1 then inRaid, inParty = false, false end
+    elseif type(GetNumRaidMembers) == "function" or type(GetNumPartyMembers) == "function" then
+        local rn, pn = 0, 0
+        if type(GetNumRaidMembers) == "function" then local ok,n=pcall(GetNumRaidMembers); rn=(ok and tonumber(n)) or 0 end
+        if type(GetNumPartyMembers) == "function" then local ok,n=pcall(GetNumPartyMembers); pn=(ok and tonumber(n)) or 0 end
+        if rn <= 0 then inRaid = false end
+        if pn <= 0 and rn <= 0 then inParty = false end
+    end
+    return inInstance, inRaid, inParty, inGuild
+end
+
+function ns:BroadcastVersionUpdate(force)
+    if DB and DB.updateNotify == false then return false end
+    self:RegisterUpdatePrefix()
+    local now = UP_GetTime()
+    local last = tonumber(self._updateLastSend) or 0
+    if not force and (now - last) < 60 then return false end
+
+    local prefix = self.UPDATE_COMM_PREFIX
+    local msg = tostring(self.UPDATE_ADDON_KEY or ADDON_NAME) .. ":" .. tostring(VERSION or "0")
+    local sentAny = false
+
+    local function send(chatType)
+        if not chatType then return false end
+        if C_ChatInfo and type(C_ChatInfo.SendAddonMessage) == "function" then
+            local ok = pcall(C_ChatInfo.SendAddonMessage, prefix, msg, chatType)
+            return ok and true or false
+        elseif type(SendAddonMessage) == "function" then
+            local ok = pcall(SendAddonMessage, prefix, msg, chatType)
+            return ok and true or false
+        end
+        return false
+    end
+
+    local inInstance, inRaid, inParty, inGuild = UP_CanChatSend()
+    if inInstance then sentAny = send("INSTANCE_CHAT") or sentAny end
+    if inRaid then sentAny = send("RAID") or sentAny end
+    if inParty and not inRaid then sentAny = send("PARTY") or sentAny end
+    if inGuild then sentAny = send("GUILD") or sentAny end
+
+    self._updateLastSend = now
+    if sentAny then self._updateLastSentAny = true end
+    self._updateReady = true
+    return sentAny
+end
+
+function ns:ScheduleVersionBroadcast(delay, force)
+    if DB and DB.updateNotify == false then return end
+    local d = tonumber(delay) or 8
+    local function run()
+        if not DB or DB.updateNotify == false then return end
+        self:BroadcastVersionUpdate(force and true or false)
+    end
+    if C_Timer and type(C_Timer.After) == "function" then
+        pcall(C_Timer.After, d, run)
+    else
+        local f = self._updateDelayFrame
+        if not f and type(CreateFrame) == "function" then
+            f = CreateFrame("Frame")
+            self._updateDelayFrame = f
+        end
+        if f then
+            f._t = 0; f._d = d
+            f:SetScript("OnUpdate", function(fr, elapsed)
+                fr._t = (fr._t or 0) + (elapsed or 0)
+                if fr._t >= (fr._d or 0) then
+                    fr:SetScript("OnUpdate", nil)
+                    run()
+                end
+            end)
+        else
+            run()
+        end
+    end
+end
+
+function ns:HandleVersionAddonMessage(prefix, message, channel, sender)
+    if prefix ~= self.UPDATE_COMM_PREFIX then return end
+    if type(message) ~= "string" or message == "" then return end
+    if UP_IsSelfSender(sender) then return end
+    local key, ver = message:match("^([^:]+):(.+)$")
+    if not key or not ver then return end
+    if key ~= tostring(self.UPDATE_ADDON_KEY or ADDON_NAME) then return end
+
+    local mine = tostring(VERSION or "0")
+    if self:IsVersionNewer(ver, mine) then
+        self._updateNewest = ver
+        if (not DB or DB.updateNotify ~= false) and self._updateNotified ~= ver then
+            self._updateNotified = ver
+            local repo = "https://github.com/ByJTT/" .. tostring(REPO_NAME or "wow-forever-fishing-addon")
+            Print("|cff88ddffUpdate available:|r " .. tostring(DISPLAY_NAME) .. " v" .. tostring(ver) .. " (you have v" .. mine .. "). Get updates via CurseForge/WowUp/Wago when released, or: " .. repo)
+        end
+    end
+end
 
 local function SavePosition()
     if not DB then return end
@@ -848,6 +1039,10 @@ local function EnsureOptionsPanel()
     mkCheck("Pulse buttons", function() return DB.pulse end, function(v) DB.pulse = v end)
     mkCheck("Bite alert (sound + flash)", function() return DB.biteAlert end, function(v) DB.biteAlert = v; Refresh() end)
     mkCheck("Play sounds", function() return DB.sound end, function(v) DB.sound = v end)
+    mkCheck("Update notifications (peer, no internet)", function() return DB.updateNotify ~= false end, function(v)
+        DB.updateNotify = v and true or false
+        if DB.updateNotify and ns.ScheduleVersionBroadcast then ns:ScheduleVersionBroadcast(2, true) end
+    end, "Best-effort: notifies if a group/raid/instance/guild peer runs a newer version. No internet and no auto-install; get actual updates via CurseForge/WowUp/Wago when released or the repo.")
     mkCheck("Debug logging", function() return DB.debug end, function(v) DB.debug = v end)
 
     local scaleLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -1020,6 +1215,7 @@ end
 local function Init()
     EnsureDB()
     MigrateDB()
+    if ns.RegisterUpdatePrefix then ns:RegisterUpdatePrefix() end
     if DB.session then
         sessionCasts = tonumber(DB.session.casts) or 0
         sessionCatches = tonumber(DB.session.catches) or 0
@@ -1037,9 +1233,10 @@ local function Init()
             ShowOnboarding(false)
         end
     end
+    if ns.ScheduleVersionBroadcast then ns:ScheduleVersionBroadcast(10, true) end
 end
 
-root:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
+root:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4)
     if event == "PLAYER_LOGIN" then
         Init()
     elseif event == "PLAYER_LOGOUT" or event == "PLAYER_LEAVING_WORLD" or event == "PLAYER_QUITTING" then
@@ -1081,8 +1278,14 @@ root:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
                 end
             end
         end
+    elseif event == "CHAT_MSG_ADDON" then
+        if ns.HandleVersionAddonMessage then ns:HandleVersionAddonMessage(arg1, arg2, arg3, arg4) end
     elseif event == "SPELLS_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
         if DB then Refresh() end
+        if event == "PLAYER_ENTERING_WORLD" and ns.ScheduleVersionBroadcast then ns:ScheduleVersionBroadcast(12, false) end
+    elseif event == "GROUP_ROSTER_UPDATE" then
+        if ns.ScheduleVersionBroadcast then ns:ScheduleVersionBroadcast(12, false) end
+        if DB then Refresh(true) end
     elseif event == "BAG_UPDATE" or event == "BAG_UPDATE_DELAYED" then
         -- Lure/pole/loot inventory changes can affect the smart button plan.
         if DB then Refresh(true) end
@@ -1116,6 +1319,8 @@ end
 pcall(root.RegisterEvent, root, "PLAYER_LOGOUT")
 pcall(root.RegisterEvent, root, "PLAYER_LEAVING_WORLD")
 pcall(root.RegisterEvent, root, "PLAYER_QUITTING")
+pcall(root.RegisterEvent, root, "CHAT_MSG_ADDON")
+pcall(root.RegisterEvent, root, "GROUP_ROSTER_UPDATE")
 
 -- Emote handler second registration path (bite emote "The fish bites!"/splash)
 local emoteFrame = CreateFrame("Frame")
@@ -1149,6 +1354,7 @@ local function Help()
     print("  /ffish move                show & unlock to reposition")
     print("  /ffish scale <0.6-2.0>     button scale")
     print("  /ffish bite                toggle bite alert")
+    print("  /ffish update              toggle peer update notifications (no internet)")
     print("  /ffish test                flash bite alert (test)")
     print("  /ffish debug               status / tracker state")
     print("  /ffish onboarding          show onboarding")
@@ -1260,6 +1466,10 @@ SlashCmdList.FOREVERFISHING = function(msg)
         else Print("Usage: /ffish scale 1.0") end
     elseif cmd == "bite" then
         DB.biteAlert = not DB.biteAlert; Print("Bite alert: " .. (DB.biteAlert and "ON" or "OFF"))
+    elseif cmd == "update" or cmd == "updates" or cmd == "notify" or cmd == "updatenotify" then
+        DB.updateNotify = not DB.updateNotify
+        Print("Update notifications (peer, no internet): " .. (DB.updateNotify and "|cff88ff88ON|r" or "|cffff8888OFF|r") .. ". Checks group/guild/instance peers; get actual updates via CurseForge/WowUp/Wago when released or repo.")
+        if DB.updateNotify and ns.ScheduleVersionBroadcast then ns:ScheduleVersionBroadcast(2, true) end
     elseif cmd == "test" then
         OnBite(); Print("Bite alert test.")
     elseif cmd == "debug" then
@@ -1273,6 +1483,12 @@ SlashCmdList.FOREVERFISHING = function(msg)
             VERSION, tostring(DB._schema), tostring(InCombat()), tostring(pendingSecure), tostring(DB.locked), tostring(DB.hidden),
             tostring(root and root:IsShown()), tostring(DB.biteAlert), tostring(fishingActive), tostring(RecentlyFishing(12)),
             tostring(skill), sessionCasts, sessionCatches, tostring(CurrentZoneName())))
+        Print("updateNotify=" .. tostring(DB.updateNotify) .. " prefix=" .. tostring(ns.UPDATE_COMM_PREFIX) .. " registered=" .. tostring(ns._updatePrefixRegistered) .. " newestSeen=" .. tostring(ns._updateNewest) .. " notified=" .. tostring(ns._updateNotified))
+        if ns._updateNewest and ns._updateNewest ~= "" then
+            Print("Update (peer): newer version seen v" .. tostring(ns._updateNewest) .. " (you have v" .. tostring(VERSION) .. "). Updates via CurseForge/WowUp/Wago when released or repo.")
+        else
+            Print("Updates: peer check only (no internet/auto-update). Actual updates via CurseForge/WowUp/Wago when released or repo.")
+        end
         Print("pole: equipped=" .. tostring(equipped and (equipped.name or equipped.id or "?") or "none")
             .. " | bagBest=" .. tostring(bagPole and (bagPole.name or bagPole.id or "?") or "none")
             .. " | hasLure=" .. tostring(hasLure))

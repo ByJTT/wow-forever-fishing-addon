@@ -11,8 +11,9 @@
 - Scope/target: World of Warcraft: Forever (Interface 16001, 30300). Feature-detected API fallbacks. No Ace/framework deps.
 - Install path: `<WoW Forever>/Interface/AddOns/ForeverFishing/ForeverFishing.toc`
 - Required in-game files: `ForeverFishing.toc`, `ForeverFishing.lua`.
-- Commands: `/ffish help|config|show|hide|cast|lure|stats|zones|reset|lock|unlock|move|scale|bite|test|debug|onboarding|rl` (see README). `/ffish cast` performs smart fish (equip pole, apply lure if bare, cast); `/ffish lure` applies best lure (out of combat).
+- Commands: `/ffish help|config|show|hide|cast|lure|stats|zones|reset|lock|unlock|move|scale|bite|update|test|debug|onboarding|rl` (see README). `/ffish cast` performs smart fish (equip pole, apply lure if bare, cast); `/ffish lure` applies best lure (out of combat).
 - Behavior: secure button/state refresh driven by spells, bag/equipment/skill/inventory, loot, combat, and channel events (best-effort, coalesced). Bite/catch tracking is best-effort and non-automated.
+- Updates: best/common via addon managers (CurseForge/WowUp/Wago) when released, or GitHub repo releases/downloads. Optional in-game peer update notifier via addon comms (`/ffish update`, on by default) - no internet, no auto-install, detects newer peer version only.
 - Safety: SecureActionButtonTemplate attribute casting; **no** `OnClick`/`PreClick`/`PostClick` on secure buttons; protected changes deferred out of combat (`InCombatLockdown`/`PLAYER_REGEN_ENABLED`).
 - Branding/support (public): by ByJTT - https://byjtt.com - https://github.com/ByJTT - Support placeholder: https://buymeacoffee.com/ByJTT (replace with real URL when ready).
 - Issues: include WoW Forever build/interface, addon version (`/ffish debug`), steps, expected/actual, Lua errors (`/console scriptErrors 1`). No account data/local personal paths.

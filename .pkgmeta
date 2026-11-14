@@ -1,0 +1,15 @@
+package-as: ForeverFishing
+
+ignore:
+  - .git
+  - .github
+  - .gitignore
+  - .gitattributes
+  - .luarc.json
+  - AGENTS.md
+  - CONTRIBUTING.md
+  - HANDOFF.md
+  - llms.txt
+  - README.md
+  - CHANGELOG.md
+  - LICENSE

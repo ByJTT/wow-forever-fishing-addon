@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Peer update notifications (best-effort, no internet):** in-game version check via addon comms with group/raid/instance/guild peers (shared ByJTT prefix). Notifies once per session if a peer runs a newer version. Toggle with `/ffish update` (on by default, slash command and settings toggle). This does **not** check CurseForge/GitHub directly and cannot auto-install updates - use CurseForge/WowUp/Wago (when released) or the GitHub repo for actual updates.
+- **CurseForge/packager prep:** added `.pkgmeta` for clean release packaging (`ForeverFishing/` folder, repo/docs/dev files ignored).
+
 ### Changed
 - **One smart Fish! button replaces the two-button bar:** a single click now equips your best pole (if needed), applies your best lure (only if the pole is bare - never wasted), and casts. No second button to learn.
 - **Plain-English tooltip:** hover shows your skill, equipped pole, lure state, and exactly what the next click will do (status parsing/formatting cleaned up for readability).
