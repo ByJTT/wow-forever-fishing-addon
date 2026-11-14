@@ -12,7 +12,7 @@
 
 ## Current state (as of 2026-11-14, autopilot continuation)
 
-**Local `main` contains peer-update/notifier, options/docs, and release-prep changes to be committed and pushed this pass** (`https://github.com/ByJTT/wow-forever-fishing-addon.git`, branch `main`). It has **NOT** been fully verified in-game on WoW Forever.
+**Working tree clean and in sync with `origin/main`** (`https://github.com/ByJTT/wow-forever-fishing-addon.git`, branch `main`). Latest: `dfd9471 feat: add update-notify settings toggle and CurseForge release prep`. It has **NOT** been fully verified in-game on WoW Forever.
 
 ### What's shipped in code (working baseline intent)
 - **Taint-safe secure core (do not break):** `SecureActionButtonTemplate`, attribute-only actions (`type`/`spell`/`item`/`macrotext`) with runtime-resolved names; **NO** `OnClick`/`PreClick`/`PostClick` on secure buttons; protected/secure attribute or restricted visibility changes **deferred out of combat** (`InCombatLockdown` / `pendingSecure` -> `PLAYER_REGEN_ENABLED`). Read/apply split.
@@ -78,5 +78,5 @@ Use `/ffish debug` + `/console scriptErrors 1` for every change. No personal dat
 
 - Implemented **peer update notifier** (best-effort, in-game addon comms only): shared `BYJTTVER` prefix, per-addon key/version broadcast, throttled sends to group/raid/instance/guild, once-per-session "update available" notice when a peer runs newer, `/ffish update` toggle + settings checkbox (default on, persisted), and debug/status reporting. No internet checks and no auto-install; actual updates via CurseForge/WowUp/Wago when released or GitHub repo.
 - Updated `README.md`, `CHANGELOG.md` ([Unreleased]), `llms.txt`, `AGENTS.md`, and this `HANDOFF.md` for update behavior and CurseForge/manager guidance. Added `.pkgmeta` for future CurseForge/packager releases.
-- Committing and pushing notifier/release-prep changes to `origin/main` in this pass.
+- Committed and pushed notifier/release-prep changes to `origin/main` (`dfd9471`). Working tree clean after push.
 - Core open work remains: in-game verification/tuning on WoW Forever (including notifier behavior across clients/channels), bite/loot/lure/spell tuning, replace Buy Me a Coffee placeholder URL, and SemVer/tag/release when verified.
