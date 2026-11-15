@@ -23,8 +23,8 @@ Use issue templates and include:
 ## Pull requests
 
 1. Branch from `main`. Keep PRs focused.
-2. Test in game (WoW Forever): `/reload`, `/ffish config`, `/ffish onboarding`, `/ffish cast`, lure apply, `/ffish test`, `/ffish stats|zones|debug`, and combat transitions/defer (no taint/Lua errors).
-3. Update `CHANGELOG.md` for user-visible changes.
+2. Test in game (WoW Forever): `/reload`, `/ffish config`, `/ffish onboarding`, `/ffish cast`, lure apply, `/ffish show|hide`, `/ffish stats|zones|debug`, `/ffish resetpos|resetdefaults`, and combat transitions/defer (no taint/Lua errors).
+3. Update `CHANGELOG.md` for user-visible changes. Follow `BYJTT_WOW_ADDON_STANDARD.md` for UX/consistency.
 
 ## Local dev
 

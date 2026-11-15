@@ -9,17 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Peer update notifications (best-effort, no internet):** in-game version check via addon comms with group/raid/instance/guild peers (shared ByJTT prefix). Notifies once per session if a peer runs a newer version. Toggle with `/ffish update` (on by default, slash command and settings toggle). This does **not** check CurseForge/GitHub directly and cannot auto-install updates - use CurseForge/WowUp/Wago (when released) or the GitHub repo for actual updates.
-- **CurseForge/packager prep:** added `.pkgmeta` for clean release packaging (`ForeverFishing/` folder, repo/docs/dev files ignored).
+- **CurseForge/packager prep:** added `.pkgmeta` for clean release packaging (`ForeverFishing/` folder, repo/docs/dev files ignored) and `## IconTexture` to the TOC. Added `BYJTT_WOW_ADDON_STANDARD.md` (shared ByJTT UX/quality conventions).
+- **Easy recovery:** `/ffish resetpos` (`resetposition`/`resetui`) and `/ffish resetdefaults` (`resetsettings`) commands plus settings **Reset Settings** button reset addon settings to defaults while keeping catch history and session (session counters reset remains `/ffish reset`).
 
 ### Changed
 - **One smart Fish! button replaces the two-button bar:** a single click now equips your best pole (if needed), applies your best lure (only if the pole is bare - never wasted), and casts. No second button to learn.
 - **Plain-English tooltip:** hover shows your skill, equipped pole, lure state, and exactly what the next click will do (status parsing/formatting cleaned up for readability).
-- Button state refreshes after every cast, loot, bag/equipment/skill changes (best-effort event coverage across clients), with coalesced refresh to keep the secure button plan in sync without redundant churn.
+- Button state refreshes after every cast, loot, bag/equipment/skill/inventory changes (best-effort event coverage across clients), with coalesced refresh to keep the secure button plan in sync without redundant churn.
 - **Slash commands:** `/ffish cast` now performs the same smart sequence as the Fish button (equip best pole, apply lure if bare, cast) with combat/availability checks; `/ffish lure` applies the best bag lure out of combat with clearer feedback and refresh; `/ffish debug` reports richer state (hidden/shown, bite alert, equipped/bag pole, lure status, button state); help text updated.
 - **Catch & bite tracking (best-effort):** loot is counted only during/shortly after fishing activity to reduce false positives; bite detection improved to trigger on bobber splash/bite emotes during recent fishing windows, with event timestamps tracked across channel start/stop.
 - **Polish/foundation hardening:** fixed mojibake/encoding in docs and Lua, corrected `PLAYER_QUITTING` event handling, removed duplicate emote event registration, and improved event-driven state refresh reliability.
 - **Pole detection:** equipped-pole detection now only recognizes known fishing poles (by ID/name heuristic) to avoid mistaking weapons for poles.
 - **Session tracking:** restores active session cast/catch counters on reload/login when a session is in progress.
+- **QOL/unification polish (all skill levels):** grouped, plain-language `/ffish help` and consistent ByJTT chat prefix/voice (`ByJTT Fishing`), clearer onboarding/tooltips/options copy, improved settings labels/actions (Test Bite Alert, Show Welcome, Reset Settings), and clearer unknown-command guidance.
 - **UX:** added `/ffish show|hide` commands (persistent hide state), and updated help text. `/ffish move` and `/ffish show` unhide the bar.
 - **Options fallback:** when Blizzard Settings/InterfaceOptions are unavailable, `/ffish config` opens a standalone movable dialog with backdrop/close (WoW Forever/Classic-friendly). Options panel is now hidden by default until opened.
 

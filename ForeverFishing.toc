@@ -4,6 +4,7 @@
 ## Author: ByJTT
 ## Version: 1.0.0
 ## SavedVariables: ForeverFishingDB
+## IconTexture: 136245
 ## X-Category: Professions
 ## X-License: MIT
 ## X-Website: https://github.com/ByJTT/wow-forever-fishing-addon

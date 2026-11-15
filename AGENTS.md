@@ -21,10 +21,11 @@
 
 ## Commands & behavior
 
-- Primary slash: `/ffish`. Key commands: `help`, `config`, `onboarding`, `show|hide`, `cast`, `lure`, `stats`, `zones`, `reset`, `lock|unlock|move`, `scale`, `bite`, `update`, `test`, `debug`, `rl`.
+- Primary slash: `/ffish`. Key commands: `help`, `config`, `onboarding`, `show|hide`, `cast`, `lure`, `stats`, `zones`, `reset`, `resetpos|resetposition|resetui`, `resetdefaults|resetsettings`, `lock|unlock|move`, `scale`, `bite`, `update`, `test`, `debug`, `rl`.
 - **`cast`** performs the same smart sequence as the Fish button (equip best pole if needed, apply best lure if the pole is bare, then cast) with combat/availability checks. **`lure`** applies the best bag lure out of combat when the pole is bare, with feedback and refresh.
+- **Recovery:** `/ffish reset` clears session counters; `/ffish resetpos` resets bar position; `/ffish resetdefaults` resets addon settings to defaults while keeping catch history and session (blocked in combat). Settings panel provides matching actions.
 - State/UI should refresh from events (spells, bags/equipment/skill/inventory changes, loot, combat, logout, entering world, and fishing channel state) with coalesced refresh and stay in sync with the secure button plan. Bite detection and loot/catch tracking are best-effort (emote/channel/loot heuristics vary by client) and intentionally non-automated.
-- **Updates:** in-game peer update notifications are best-effort addon-comms only (no internet, no auto-install). Actual release updates should be delivered via addon managers (CurseForge/WowUp/Wago) when published or GitHub releases; keep TOC `## Version`/Lua `VERSION` accurate for SemVer releases.
+- **Updates:** in-game peer update notifications are best-effort addon-comms only (no internet, no auto-install). Actual release updates should be delivered via addon managers (CurseForge/WowUp/Wago) when published or GitHub releases; keep TOC `## Version`/Lua `VERSION` accurate for SemVer releases. Follow `BYJTT_WOW_ADDON_STANDARD.md` for cross-addon UX/quality consistency.
 
 ## Changes & releases
 

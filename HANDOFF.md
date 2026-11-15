@@ -1,82 +1,50 @@
-# HANDOFF.md - wow-forever-fishing-addon ByJTT
+# Handoff - WoW Forever Fishing Addon ByJTT
 
-> **Single-source handoff/status for humans and AI agents.** Read this first to get full context without re-explaining the project. Keep it updated when state/decisions change.
->
-> - Repo: `ByJTT/wow-forever-fishing-addon` (public) - https://github.com/ByJTT/wow-forever-fishing-addon
-> - Display name (TOC, "AddonName ByJTT"): **WoW Forever Fishing Addon ByJTT**
-> - By: **ByJTT** (solo studio) - https://byjtt.com - https://github.com/ByJTT
-> - Support (PLACEHOLDER - replace before release/marketing): https://buymeacoffee.com/ByJTT
-> - Target: **World of Warcraft: Forever** (Interface `16001, 30300`), feature-detected API fallbacks
-> - **In-game folder name must remain `ForeverFishing`** (repo name != install folder name)
-> - License: MIT
+> Last updated: 2026-11-14 (autopilot: Blizzard-native QOL/unification polish - grouped help/chat voice, recovery/reset commands, TOC icon, shared standard/docs alignment; no in-game verification)
 
-## Current state (as of 2026-11-14, autopilot continuation)
+## Current state
 
-**Working tree clean and in sync with `origin/main`** (`https://github.com/ByJTT/wow-forever-fishing-addon.git`, branch `main`). Latest: `dfd9471 feat: add update-notify settings toggle and CurseForge release prep`. It has **NOT** been fully verified in-game on WoW Forever.
+- **Addon:** `WoW Forever Fishing Addon ByJTT` (repo: `wow-forever-fishing-addon`, in-game folder: `ForeverFishing`)
+- **Version:** TOC `## Version 1.0.0`, Lua `ns.VERSION = "1.0.0"` (SavedVariables schema `ns.SCHEMA = 1`, per-account `ForeverFishingDB`)
+- **Target:** World of Warcraft: Forever (Interface 16001, 30300). Taint-safe, secure click-to-cast. No libraries/framework dependencies.
+- **Baseline:** v1.0.0 smart one-button foundation and hardening are present in git history (`1d3a10f`, `4efdc15`, `b44ae26`, `da0fd86` and subsequent commits).
+- **Git:** `main` tracks `origin/main` (`https://github.com/ByJTT/wow-forever-fishing-addon.git`). This QOL/unification polish pass is committed and pushed in this session (working tree clean after push).
+- **Shared standard:** `BYJTT_WOW_ADDON_STANDARD.md` (repo-only, ignored by `.pkgmeta`) documents shared ByJTT UX/quality/release conventions.
 
-### What's shipped in code (working baseline intent)
-- **Taint-safe secure core (do not break):** `SecureActionButtonTemplate`, attribute-only actions (`type`/`spell`/`item`/`macrotext`) with runtime-resolved names; **NO** `OnClick`/`PreClick`/`PostClick` on secure buttons; protected/secure attribute or restricted visibility changes **deferred out of combat** (`InCombatLockdown` / `pendingSecure` -> `PLAYER_REGEN_ENABLED`). Read/apply split.
-- **ByJTT foundation:** `ByJTT.Brand`/`ByJTT.Addons.ForeverFishing` namespace, compat providers (`pcall`/feature-detect for `C_Spell`/`GetSpellInfo`, `GetItemCount`, profession APIs, zone APIs), schema-versioned SavedVariables (`_schema=1`, additive migrations, **never destructively drop unknown keys**).
-- **Features:** one smart **Fish!** button (equip best pole -> apply best lure only if pole is bare -> cast) with coalesced refresh and broader event coverage; bite alert (emote-driven flash + sound, best-effort); catch/session/zone/lifetime tracking (best-effort, tuned to avoid false positives) with session counter restore; `/ffish` slash parity (`cast|lure|show|hide|stats|zones|config|...`) + settings (with standalone fallback) + onboarding + richer debug.
-- **Peer update notifications (best-effort, no internet):** in-game version check via addon comms with group/raid/instance/guild peers (shared ByJTT prefix `BYJTTVER`). Notifies once per session if a peer runs a newer version of this addon. Toggle `/ffish update` and settings checkbox (on by default, persisted). **No internet/CurseForge API checks and no auto-install** - actual updates via addon managers (CurseForge/WowUp/Wago) when released, or GitHub repo.
-- **CurseForge/release prep (partial):** `.pkgmeta` added for packager-friendly zips (package-as `ForeverFishing`, ignores repo/dev files). TOC/Lua `VERSION` remain `1.0.0` (unreleased polish in `[Unreleased]` changelog).
-- **Branding:** "AddonName ByJTT" style - display/TOC: `WoW Forever Fishing Addon ByJTT`. byjtt.com + GitHub links. Support is a **PLACEHOLDER** URL in TOC/Lua/docs/UI (`https://buymeacoffee.com/ByJTT`) - replace with the real Buy Me a Coffee URL everywhere before release/marketing.
-- **Docs/contract:** `README.md`, `AGENTS.md`, `CONTRIBUTING.md`, `CHANGELOG.md` (foundation/hardening + notifier/unreleased notes), `llms.txt`, `.github/*`, `.luarc.json`, `.pkgmeta`.
+## What is implemented (v1 foundation + ongoing polish)
 
-## In-game files (ship/install)
-- `ForeverFishing.toc`, `ForeverFishing.lua`. Everything else is repo/docs.
-- Install path: `<WoW Forever>/Interface/AddOns/ForeverFishing/ForeverFishing.toc` (folder name **`ForeverFishing`**).
+- **One smart Fish! button (secure):** `SecureActionButtonTemplate` action button plans and performs pole equip (if needed) + lure apply (only when pole is bare, never wasted) + cast in one click. **No** `OnClick`/`PreClick`/`PostClick` on secure buttons. Protected attribute/visibility changes deferred out of combat.
+- **State/refresh:** coalesced refresh across login/spells/bags/equipment/skill/inventory/combat/channel/loot/zone events to keep the secure plan in sync (feature-detected APIs, WoW Forever fallbacks). Persistent show/hide, movable/lockable/scalable bar.
+- **Helpers/tracking (best-effort):** fishing skill + best-known pole/lure detection, bite alert (flash/sound), session cast/catch counters, per-zone and lifetime catch tracking, and debug/status reporting. Bite/loot heuristics are best-effort and intentionally non-automated.
+- **UX/onboarding/settings:** first-run onboarding (re-openable), Blizzard-native settings via `Settings`/`InterfaceOptions` when available with standalone movable fallback (`/ffish config`), plain-English status tooltip/help, and clear slash feedback.
+- **Slash commands/diagnostics:** `/ffish` for `help`, `config`, `show|hide`, `cast` (smart sequence), `lure`, `stats`, `zones`, `reset` (session), `resetpos|resetposition|resetui` (bar position), `resetdefaults|resetsettings` (settings, keeps catch history and session), `lock|unlock|move`, `scale`, `bite`, `update`, `test`, `debug`, `onboarding`, `rl`.
+- **Help/voice/recovery (this polish pass):** grouped, plain-language `/ffish help` and consistent ByJTT chat prefix/branding (`ByJTT Fishing`), clearer onboarding/tooltips/options copy and unknown-command guidance, plus reset-position/reset-settings commands and settings actions (keeps catch history/session) for easy recovery. Added `## IconTexture` for addon-list parity.
+- **Compat/safety:** feature-detected providers/pcall guards (spell/item/channel/bag/skill APIs, loot/emote events) for WoW Forever (16001/30300) differences; additive schema-versioned SavedVariables.
+- **Peer update notifications (best-effort):** optional in-game peer version check via addon comms (`BYJTTVER`, group/raid/instance/guild, throttled, once-per-session notice) with `/ffish update` toggle and settings/debug visibility. **No internet, no auto-install**; real updates via addon managers (CurseForge/WowUp/Wago when published) or GitHub repo.
+- **Release prep/docs:** `.pkgmeta` for CurseForge/packager, README/CHANGELOG/AGENTS/CONTRIBUTING/llms and this handoff aligned.
 
-## Key commands (in game)
-`/ffish help|config|show|hide|cast|lure|stats|zones|reset|lock|unlock|move|scale|bite|update|test|debug|onboarding|rl`. Enable Lua errors: `/console scriptErrors 1`.
+## Recent autopilot changes (2026-11-13 to 2026-11-14)
 
-## Verification checklist (do this in-game on WoW Forever first)
-1. `/reload` + `/console scriptErrors 1` - **no Lua errors/taint**.
-2. **Cast:** Fish button casts Fishing; Lure button appears with lures in bags and applies best lure; `/ffish cast`, `/ffish lure` work.
-3. **Bite + tracker:** `/ffish test` flashes + sounds; real bite flashes; catches increment `/ffish stats` + `/ffish zones`.
-4. **Combat/lockdown:** in combat, no protected attribute/visibility churn/taint (deferred); after leaving combat refresh applies.
-5. **UX:** onboarding appears once (re-open via `/ffish onboarding`), `/ffish config` opens (or fallback), drag/lock/scale/bite toggle/reset work.
-6. **Updates (peer):** `/ffish update` toggles notifications (and settings checkbox), `/ffish debug` shows notifier state; peer version notice appears once per session only when a newer peer is detected (group/raid/instance/guild). No internet, no auto-install.
-7. **Data tuning:** confirm lure IDs/names and Fishing spell resolution for WoW Forever via `/ffish debug`; prefer ID + name fallback coverage.
+- `da0fd86` (pushed): hardening pass - coalesced/broader event refresh, safer pole detection, improved bite/loot heuristics and timestamps, session restore, `/ffish cast/lure/show|hide/debug` and options/UX/doc polish.
+- `bcd7f03` (pushed): added `.luarc.json` for editor/Lua diagnostics consistency.
+- `dfd9471` / `35f126a` (pushed): update-notify settings toggle parity, `.pkgmeta` CurseForge prep, and docs/handoff sync (notifier/slash/debug already present).
+- **2026-11-14 QOL/unification polish (this pass, committed/pushed):** grouped plain-language `/ffish help` and consistent chat prefix/voice (`ByJTT Fishing`), clearer onboarding/tooltips/options copy, `/ffish resetpos|resetdefaults` + settings **Reset Settings** (keeps catch history and session), `## IconTexture`, `BYJTT_WOW_ADDON_STANDARD.md`, `.pkgmeta` ignore for standard doc, and synchronized README/CHANGELOG/AGENTS/CONTRIBUTING/llms/HANDOFF. No in-game verification performed.
 
-## Open items / next steps (priority)
-1. **In-game verification on WoW Forever:** run the checklist above; fix any client-specific API/event/Settings issues (feature-detect/pcall). Lure/spell/pole/bite/loot behavior and notifier comms/channels are **best-effort** and likely need tuning from `/ffish debug` + real testing.
-2. **Replace Buy Me a Coffee placeholder** `https://buymeacoffee.com/ByJTT` with the real URL in: `ForeverFishing.lua` (`ByJTT.Brand.support`), `ForeverFishing.toc` (`X-ByJTT-Support`), `README.md`, `AGENTS.md`, `llms.txt`, `CHANGELOG.md` notes, and in-game About/onboarding text.
-3. **Local install for testing:** copy/symlink repo `ForeverFishing/` files to `<WoW Forever>/Interface/AddOns/ForeverFishing/`.
-4. **Decide SemVer/release when verified:** sync TOC `## Version` + Lua `VERSION`/`SCHEMA` + `CHANGELOG` + git tag `vX.Y.Z` + GitHub release **only when explicitly requested**.
-5. **Future (post-verification):** optional pole-equip refinements, auto re-lure prompt, per-character profiles, tournament mode. Keep minimal until verified.
+## Open items / next steps
 
-## Architecture anchors (quick)
-- `ForeverFishing.lua`: header/brand/ns, constants (spell/poles/lures), compat, SV schema+migration, UI root + secure buttons (`UpdateSecure`/`pendingSecure`), tracker state, BuildButtonStates/ApplyStates, onboarding, options (feature-detected), peer update notifier (addon comms, best-effort), events (bite + loot + addon comms), slash (`/ffish`). **Central invariant:** no secure handlers; no protected changes in combat.
-- `ForeverFishing.toc`: metadata/version/SV/`X-ByJTT-*`/load order.
-- `AGENTS.md`: agent rules (taint, lockdown, privacy, migrations, SemVer sync).
+1. **In-game verification (WoW Forever):** `/reload`, `/console scriptErrors 1`, `/ffish config` (Blizzard + fallback), onboarding, smart Fish! flow (pole/lure/cast), bite alert and loot/catch tracking heuristics, zone/session/lifetime stats, show/hide/move/lock/scale/persistence, `/ffish debug/cast/lure/stats/zones`, reset position/resetdefaults, combat lockdown/deferral/taint-safety, and peer notifier behavior (`/ffish update`, group/raid/instance/guild across clients/builds).
+2. **API/compat tuning:** confirm fishing spell/ranks, lure/pole item IDs/names, bag/equipment/channel/loot/emote event behavior on WoW Forever and adjust feature-detected fallbacks/heuristics from in-game findings.
+3. **Branding/release:** replace Buy Me a Coffee placeholder URL (`https://buymeacoffee.com/ByJTT`) everywhere before public release. Decide SemVer/tag/release only after verification (sync TOC/Lua/CHANGELOG, tag `vX.Y.Z`, GitHub release, publish to CurseForge/WowUp/Wago as appropriate).
+4. **Quality:** optional CI/lint checks, further accessibility/readability passes, and keep behavior consistent with `BYJTT_WOW_ADDON_STANDARD.md`.
 
-## How to work (Mac/local)
-```sh
-cd /Users/jordanthirkle/repos/wow-forever-fishing-addon
-# edit, then copy to: /Applications/World of Warcraft/_forever_/Interface/AddOns/ForeverFishing/
-# /reload in game; keep taint-safety invariants
-git add -A && git commit -m "..." && git push origin main  # only when ready
-```
-Use `/ffish debug` + `/console scriptErrors 1` for every change. No personal data/local absolute paths/secrets in commits. No Ace/deps unless justified.
+## Known constraints / design notes
 
-## Decisions log (why)
-- **"AddonName ByJTT"** display style; in-game folder/`ADDON_NAME` remain `ForeverFishing` for loader stability (repo name SEO-friendly). By = solo studio **ByJTT** (not a personal name in branding).
-- **1 Lua + TOC, no libs** for low risk/simple install; mirrors the buff-reminder foundation pattern.
-- **Best-in-bags lure, not auto-lure** (v1): one-click apply keeps the player in control; fully automatic re-luring risks taint/combat edge cases.
-- **Emote-driven bite alert** (v1): no dedicated bobber event exists; channel-state + emote match is the classic reliable cue. Sound ID reused from foundation (verify in-game).
-- **Updates:** best/common distribution via addon managers (CurseForge/WowUp/Wago) when released, or GitHub; in-game peer notifier is best-effort complement only (no internet, no auto-install).
-- **Local-only until verified**; tag/release only after verification + real support URL.
+- Bite detection and catch attribution are **best-effort heuristics** (bobber/emote/channel/loot timing varies by client); intentionally non-automated and may need in-game tuning.
+- Taint safety is paramount: never add secure-button click scripts; always defer protected changes in combat.
+- In-game peer notifier is best-effort only (group/raid/instance/guild peers, no internet, no auto-install). Real update detection/install is via addon managers (CurseForge/WowUp/Wago) when released or the GitHub repo.
+- Keep public files free of secrets/account data/local personal paths. No destructive SV drops.
 
-## 2026-11-13 (autopilot continuation)
+## Git/remotes
 
-- Confirmed addon is committed, pushed, and in sync with `origin/main` (`bcd7f03` includes `.luarc.json` editor diagnostics; smart Fish! and reliability/UX hardening commits pushed). Working tree clean.
-- Updated this handoff to reflect current git/remote state and shipped behavior (replacing stale "not yet pushed" / v1-local-only notes), including `show|hide` command and current open items.
-- No in-game verification performed in this environment. Buy Me a Coffee URLs remain placeholders; no tags/releases created. Core open work remains in-game verification/tuning on WoW Forever and release hygiene when verified.
-
-## 2026-11-14 (autopilot continuation)
-
-- Implemented **peer update notifier** (best-effort, in-game addon comms only): shared `BYJTTVER` prefix, per-addon key/version broadcast, throttled sends to group/raid/instance/guild, once-per-session "update available" notice when a peer runs newer, `/ffish update` toggle + settings checkbox (default on, persisted), and debug/status reporting. No internet checks and no auto-install; actual updates via CurseForge/WowUp/Wago when released or GitHub repo.
-- Updated `README.md`, `CHANGELOG.md` ([Unreleased]), `llms.txt`, `AGENTS.md`, and this `HANDOFF.md` for update behavior and CurseForge/manager guidance. Added `.pkgmeta` for future CurseForge/packager releases.
-- Committed and pushed notifier/release-prep changes to `origin/main` (`dfd9471`). Working tree clean after push.
-- Core open work remains: in-game verification/tuning on WoW Forever (including notifier behavior across clients/channels), bite/loot/lure/spell tuning, replace Buy Me a Coffee placeholder URL, and SemVer/tag/release when verified.
+- Branch: `main` (tracks `origin/main`)
+- Remote: `origin` -> `https://github.com/ByJTT/wow-forever-fishing-addon.git`

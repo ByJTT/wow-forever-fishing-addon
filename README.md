@@ -24,7 +24,8 @@ Hover the button any time to see plain-English status: your skill, which pole is
 - **Bite alert** - flash + optional sound when the fish bites (best-effort).
 - **Catch tracker** - session casts/catches, per-zone breakdown (`/ffish zones`), lifetime totals (best-effort, counted during/shortly after fishing).
 - **Taint-safe** - no `OnClick`/`PreClick`/`PostClick` handlers on secure buttons; protected changes deferred out of combat.
-- **WoW-authentic UX** - onboarding (first run), Blizzard-native settings when available (`/ffish config`, with standalone fallback), tooltips, pulse/sound, drag/lock/scale, and reliable show/hide.
+- **WoW-authentic UX** - clear onboarding (first run, re-openable), Blizzard-native settings when available with standalone fallback (`/ffish config`), plain-language tooltips/help, pulse/sound, drag/lock/scale, reliable show/hide, and easy recovery (reset position/reset settings).
+- **Peer update notifications (best-effort):** optional in-game notice (once per session) if a group/raid/instance/guild peer is running a newer version (`/ffish update`, on by default). No internet, no auto-install.
 - **ByJTT foundation** - `ByJTT` namespace/brand, compat providers (WoW Forever API fallbacks), schema-versioned SavedVariables, `/ffish` slash parity, diagnostics (`/ffish debug`).
 
 > **Branding/support:** by **ByJTT** - https://byjtt.com - https://github.com/ByJTT - Support (placeholder): https://buymeacoffee.com/ByJTT (set your real Buy Me a Coffee URL before release/marketing)
@@ -66,6 +67,8 @@ Source: https://github.com/ByJTT/wow-forever-fishing-addon
 /ffish stats          session + zone summary
 /ffish zones          full zone breakdown
 /ffish reset          end session, start fresh counters
+/ffish resetpos       reset bar position
+/ffish resetdefaults  reset addon settings (keeps catch history and session)
 /ffish lock|unlock    lock/unlock position (Shift+Drag moves)
 /ffish move           show buttons and unlock for repositioning
 /ffish scale <0.6-2>  button scale
@@ -73,7 +76,7 @@ Source: https://github.com/ByJTT/wow-forever-fishing-addon
 /ffish update         toggle peer update notifications (in-game, no internet)
 /ffish test           flash bite alert (test)
 /ffish debug          print status / tracker state
-/ffish onboarding     show onboarding
+/ffish onboarding     show welcome/onboarding
 /ffish rl             reload UI
 ```
 

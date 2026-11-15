@@ -326,7 +326,7 @@ ns.root = root
 
 local function Print(msg)
     if DEFAULT_CHAT_FRAME then
-        DEFAULT_CHAT_FRAME:AddMessage("|cff4dd0e6WoW Forever Fishing Addon ByJTT:|r " .. tostring(msg))
+        DEFAULT_CHAT_FRAME:AddMessage("|cff4dd0e6ByJTT Fishing|r: " .. tostring(msg))
     end
 end
 local function Debug(msg)
@@ -989,18 +989,19 @@ local function ShowOnboarding(force)
             b:SetScript("OnClick", onClick)
             return b
         end
-        mkBtn("Got it", 0, 16, 110, function() DismissOnboarding(true); Print("You're set. Click Fish to cast. /ffish config for settings.") end)
+        mkBtn("Got it", 0, 16, 110, function() DismissOnboarding(true); Print("You're all set. Click Fish! to cast. Type /ffish config for settings or /ffish help for commands.") end)
         mkBtn("Open Settings", -125, 16, 110, function() DismissOnboarding(true); ns.OpenOptions() end)
         mkBtn("Later", 125, 16, 70, function() DismissOnboarding(false) end)
     end
     onboard.body:SetText(
-        "One button does it all: equips your best pole, applies a lure,\n" ..
-        "and casts - every click is ready to fish.\n\n" ..
-        "-  Click |cff00ff00Fish!|r once. When it flashes + sounds, click the bobber.\n" ..
-        "-  Hover the button to see your pole, lure and skill.\n" ..
-        "-  |cff888888Shift+Drag|r to move. Catches are tracked automatically.\n\n" ..
+        "One button makes fishing easy.\n\n" ..
+        "-  Click |cff00ff00Fish!|r to equip your pole, apply a lure if needed, and cast.\n" ..
+        "-  When the button flashes or you hear a sound, click the bobber to loot your catch.\n" ..
+        "-  Hover the button to see your pole, lure, and skill.\n" ..
+        "-  |cff888888Shift+Drag|r to move the bar. Catches and zones are tracked for you.\n" ..
+        "-  Safe by design: if something can't happen in combat, it waits until combat ends.\n\n" ..
         "Support: " .. (ByJTT.Brand.supportLabel or "Buy Me a Coffee") .. " (placeholder) - " .. (ByJTT.Brand.support or "") .. "\n" ..
-        "Use |cff4dd0e6/ffish config|r for settings."
+        "Type |cff4dd0e6/ffish config|r for settings or |cff4dd0e6/ffish help|r anytime."
     )
     onboard:Show()
 end
@@ -1020,7 +1021,7 @@ local function EnsureOptionsPanel()
     title:SetText("|cff4dd0e6WoW Forever Fishing Addon|r |cffaaaaaaby ByJTT|r")
     local sub = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
-    sub:SetText("One-click fishing, lure & pole helpers, bite alert + catch tracker. /ffish help")
+    sub:SetText("Easy one-click fishing for all skill levels: pole, lure, cast, bite alert, and catch tracking. Type /ffish help for commands.")
 
     local y = -60
     local function mkCheck(label, get, set, tooltip)
@@ -1037,13 +1038,14 @@ local function EnsureOptionsPanel()
     mkCheck("Lock position", function() return DB.locked end, function(v) DB.locked = v; Print("Locked: " .. tostring(v)) end,
         "When locked, Shift+Drag moves the buttons.")
     mkCheck("Pulse buttons", function() return DB.pulse end, function(v) DB.pulse = v end)
-    mkCheck("Bite alert (sound + flash)", function() return DB.biteAlert end, function(v) DB.biteAlert = v; Refresh() end)
+    mkCheck("Bite alert (flash and sound)", function() return DB.biteAlert end, function(v) DB.biteAlert = v; Refresh() end,
+        "Alerts you when a fish bites so you know when to click the bobber.")
     mkCheck("Play sounds", function() return DB.sound end, function(v) DB.sound = v end)
     mkCheck("Update notifications (peer, no internet)", function() return DB.updateNotify ~= false end, function(v)
         DB.updateNotify = v and true or false
         if DB.updateNotify and ns.ScheduleVersionBroadcast then ns:ScheduleVersionBroadcast(2, true) end
-    end, "Best-effort: notifies if a group/raid/instance/guild peer runs a newer version. No internet and no auto-install; get actual updates via CurseForge/WowUp/Wago when released or the repo.")
-    mkCheck("Debug logging", function() return DB.debug end, function(v) DB.debug = v end)
+    end, "Best-effort: notifies you if someone in your group, raid, instance, or guild is using a newer version. No internet and no auto-install. Get updates via CurseForge, WowUp, or Wago when released, or from the GitHub repo.")
+    mkCheck("Debug logging (advanced)", function() return DB.debug end, function(v) DB.debug = v end)
 
     local scaleLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     scaleLabel:SetPoint("TOPLEFT", 20, y - 4); scaleLabel:SetText("Scale")
@@ -1058,17 +1060,22 @@ local function EnsureOptionsPanel()
     y = y - 46
 
     local testBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    testBtn:SetSize(120, 22); testBtn:SetPoint("TOPLEFT", 16, y); testBtn:SetText("Toggle Test")
-    testBtn:SetScript("OnClick", function() Print("Test: use /ffish test to simulate bite flash."); flashUntil = 2; PlayBiteHint() end)
+    testBtn:SetSize(120, 22); testBtn:SetPoint("TOPLEFT", 16, y); testBtn:SetText("Test Bite Alert")
+    testBtn:SetScript("OnClick", function() flashUntil = 2; PlayBiteHint(); Print("Testing bite alert (flash/sound).") end)
     local onbBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    onbBtn:SetSize(140, 22); onbBtn:SetPoint("LEFT", testBtn, "RIGHT", 8, 0); onbBtn:SetText("Show Onboarding")
+    onbBtn:SetSize(140, 22); onbBtn:SetPoint("LEFT", testBtn, "RIGHT", 8, 0); onbBtn:SetText("Show Welcome")
     onbBtn:SetScript("OnClick", function() DB.onboardingDone = false; DB.onboardingDismissed = false; ShowOnboarding(true) end)
     local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     resetBtn:SetSize(120, 22); resetBtn:SetPoint("LEFT", onbBtn, "RIGHT", 8, 0); resetBtn:SetText("Reset Position")
-    resetBtn:SetScript("OnClick", function() DB.point, DB.relPoint, DB.x, DB.y = "CENTER", "CENTER", 0, -190; ApplyPosition(); Print("Position reset.") end)
+    resetBtn:SetScript("OnClick", function() DB.point, DB.relPoint, DB.x, DB.y = "CENTER", "CENTER", 0, -190; ApplyPosition(); Print("Fishing bar position reset.") end)
     local trackerBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     trackerBtn:SetSize(140, 22); trackerBtn:SetPoint("TOPLEFT", 16, y - 32); trackerBtn:SetText("Session Stats")
     trackerBtn:SetScript("OnClick", function() ns.PrintStats() end)
+    local resetDefaultsBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    resetDefaultsBtn:SetSize(140, 22); resetDefaultsBtn:SetPoint("LEFT", trackerBtn, "RIGHT", 8, 0); resetDefaultsBtn:SetText("Reset Settings")
+    resetDefaultsBtn:SetScript("OnClick", function()
+        SlashCmdList.FOREVERFISHING("resetdefaults")
+    end)
     y = y - 68
 
     -- About / Support (ByJTT foundation branding)
@@ -1339,26 +1346,33 @@ end)
 -- Slash commands (/ffish). Slash parity with settings.
 --------------------------------------------------------------------------------
 local function Help()
-    Print(DISPLAY_NAME .. " - one button does it all:")
-    print("  Click |cff00ff00Fish!|r once: equips pole, applies lure, casts.")
-    print("  When it flashes + sounds: click the bobber to loot.")
-    print("  Hover the button to see pole / lure / skill status.")
-    print("  /ffish config              open settings (WoW UI)")
-    print("  /ffish show|hide           show/hide the fishing bar")
-    print("  /ffish cast                smart fish now (equip pole, apply lure if bare, cast)")
-    print("  /ffish lure                apply best lure in bags")
-    print("  /ffish stats               session + zone summary")
-    print("  /ffish zones               full zone breakdown")
-    print("  /ffish reset               end session, start fresh counters")
-    print("  /ffish lock | unlock       lock/unlock position (Shift+Drag moves)")
-    print("  /ffish move                show & unlock to reposition")
-    print("  /ffish scale <0.6-2.0>     button scale")
-    print("  /ffish bite                toggle bite alert")
-    print("  /ffish update              toggle peer update notifications (no internet)")
-    print("  /ffish test                flash bite alert (test)")
-    print("  /ffish debug               status / tracker state")
-    print("  /ffish onboarding          show onboarding")
-    print("  /ffish rl                  reload UI")
+    Print(DISPLAY_NAME .. " - quick help")
+    if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+        local function line(s) DEFAULT_CHAT_FRAME:AddMessage("  " .. s) end
+        DEFAULT_CHAT_FRAME:AddMessage("|cffffd100How to use:|r click |cff00ff00Fish!|r to equip your pole, apply a lure if needed, and cast. When it flashes or sounds, click the bobber to loot.")
+        DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Basic:|r")
+        line("/ffish config - open settings")
+        line("/ffish show | /ffish hide - show or hide the fishing bar")
+        line("/ffish lock | /ffish unlock - lock or unlock button position")
+        line("/ffish move - show and unlock to reposition (Shift+Drag also moves)")
+        line("/ffish onboarding - show the welcome guide again")
+        DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Fishing:|r")
+        line("/ffish cast - smart fish now (equip, lure, cast)")
+        line("/ffish lure - apply the best lure in your bags")
+        line("/ffish stats - session and zone summary")
+        line("/ffish zones - full catch breakdown by zone")
+        line("/ffish reset - start a fresh session counter")
+        DEFAULT_CHAT_FRAME:AddMessage("|cffffd100Options & advanced:|r")
+        line("/ffish scale <0.6-2.0> - set button scale")
+        line("/ffish bite - toggle bite alert (flash/sound)")
+        line("/ffish update - toggle peer update notifications (no internet)")
+        line("/ffish resetpos - reset bar position")
+        line("/ffish resetdefaults - reset addon settings (keeps catch history and session)")
+        line("/ffish test - test the bite alert")
+        line("/ffish debug - show status (advanced)")
+        line("/ffish rl - reload UI")
+        DEFAULT_CHAT_FRAME:AddMessage("|cff888888Tip: hover the Fish! button for live pole, lure, and skill info. Actual addon updates install via CurseForge/WowUp/Wago when released, or from the repo.|r")
+    end
 end
 
 SLASH_FOREVERFISHING1 = "/ffish"
@@ -1460,6 +1474,36 @@ SlashCmdList.FOREVERFISHING = function(msg)
     elseif cmd == "reset" then
         EndSession(); EnsureSession()
         Print("Session reset. Tight lines!")
+    elseif cmd == "resetpos" or cmd == "resetposition" or cmd == "resetui" then
+        DB.point, DB.relPoint, DB.x, DB.y = "CENTER", "CENTER", 0, -190
+        ApplyPosition(); Print("Fishing bar position reset.")
+    elseif cmd == "resetdefaults" or cmd == "resetsettings" then
+        if InCombat() then
+            Print("Cannot reset settings in combat. Try again after combat.")
+        else
+            local keepSession = DB.session
+            local keepCatches = DB.catches
+            local keepZones = DB.zones
+            DB.locked = defaults.locked
+            DB.showInCombat = defaults.showInCombat
+            DB.scale = defaults.scale
+            DB.alpha = defaults.alpha
+            DB.pulse = defaults.pulse
+            DB.sound = defaults.sound
+            DB.biteAlert = defaults.biteAlert
+            DB.debug = defaults.debug
+            DB.hidden = defaults.hidden
+            DB.updateNotify = defaults.updateNotify
+            DB.point, DB.relPoint, DB.x, DB.y = defaults.point, defaults.relPoint, defaults.x, defaults.y
+            DB.firstRun = false
+            DB.onboardingDone = true
+            DB.onboardingDismissed = true
+            DB.session = keepSession or DB.session
+            DB.catches = keepCatches or DB.catches
+            DB.zones = keepZones or DB.zones
+            ApplyPosition(); ApplyVisuals(); Refresh()
+            Print("Addon settings reset to defaults (catch history and session kept). Type /ffish config to adjust.")
+        end
     elseif cmd == "scale" then
         local n = tonumber(rest)
         if n then DB.scale = math.max(0.6, math.min(2.0, n)); ApplyVisuals(); Print("Scale: " .. string.format("%.2f", DB.scale))
@@ -1509,6 +1553,6 @@ SlashCmdList.FOREVERFISHING = function(msg)
     elseif cmd == "rl" or cmd == "reload" then
         ReloadUI()
     else
-        Print("Unknown command. Try /ffish help")
+        Print("Unknown command. Type /ffish help for commands.")
     end
 end
